@@ -1,7 +1,7 @@
 {
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
 
-  // Renovate is this template's active dependency bot: it covers every pin
+  // Renovate is this repository's only dependency bot: it covers every pin
   // surface this repository has: the pre-commit-checklists rev: pin in
   // .pre-commit-config.yaml, every commit-SHA action pin under
   // .github/workflows/, and the L2 image digest .devcontainer/l2/Dockerfile
@@ -9,13 +9,9 @@
   // .tool-versions and .devcontainer/asdf-plugins surfaces are gone with it;
   // tools come from signed apt repositories now and no package version is
   // pinned at all.
-  // Dependabot's own config for the pre-commit and github-actions ecosystems
-  // (dependabot.yml) is still present, deliberately, but disabled
-  // (open-pull-requests-limit: 0 on both its blocks): this repository is a
-  // GitHub template, so a project created from it may prefer Dependabot for
-  // either ecosystem, and dependabot.yml stays fully configured so that is a
-  // one-line change there rather than reconstructing config from scratch.
-  // See README.md's "What you get" and "Using this template" step 5.
+  // Dependabot is not used here: the template's disabled dependabot.yml was
+  // removed. (Dependabot security alerts are a repository setting and do not
+  // depend on that file.)
   //
   // enabledManagers below is an explicit list of exactly those managers, not
   // left as a generic catch-all the way this template's config was before
@@ -72,11 +68,7 @@
   // the development container pins, scoped to that one file by the
   // packageRules entry further down. There is no custom.regex manager any
   // more: the only thing it watched was .devcontainer/asdf-plugins, which
-  // went with asdf. github-actions and pre-commit are also configured,
-  // disabled, in dependabot.yml; see the file header above. Dropping either
-  // of those two managers from this list is the other half of switching that
-  // ecosystem back to Dependabot, alongside raising its
-  // open-pull-requests-limit there.
+  // went with asdf.
   enabledManagers: ["github-actions", "pre-commit", "dockerfile"],
 
   // Renovate's pre-commit manager ships disabled by its own default even
@@ -179,9 +171,8 @@
       addLabels: ["automerge"],
     },
 
-    // One grouped pull request per ecosystem, the same shape Dependabot's
-    // own (disabled) groups in dependabot.yml produce, each with a
-    // matching label added on top of the plain "dependencies" label above.
+    // One grouped pull request per ecosystem, each with a matching label
+    // added on top of the plain "dependencies" label above.
     {
       matchManagers: ["github-actions"],
       groupName: "github actions",

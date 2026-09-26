@@ -96,8 +96,8 @@ workflow runs from events a `GITHUB_TOKEN` creates).
 
 ## A dependency bot pull request
 
-Dependabot and Renovate open pull requests unattended. For the ones that are
-pin only:
+Renovate opens pull requests unattended (this repository has no Dependabot
+config). For the ones that are pin only:
 
 > **Where this code lives.** The two checks below are graded by
 > [ivan-pinatti-labs/gh-actions](https://github.com/ivan-pinatti-labs/gh-actions),
