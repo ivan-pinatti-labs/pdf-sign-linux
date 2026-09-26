@@ -45,6 +45,9 @@ RUN dpkg --add-architecture i386 \
 # The Wine prefix must be owned by the user who runs it, so the image is
 # built for the host user's uid (pdf-sign build passes it).
 ARG UID=1000
+# DL3064 flags the name USERNAME; this is the login name the image is built
+# for, not a secret.
+# hadolint ignore=DL3064
 ARG USERNAME=reader
 RUN useradd -l -m -u "$UID" -s /bin/sh "$USERNAME" \
   && install -d -o "$UID" -g "$UID" /opt/wine
