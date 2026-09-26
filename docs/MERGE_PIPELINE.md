@@ -253,20 +253,21 @@ copied bot schedule whose slot must be reassigned to avoid collisions:
   `repository_selection: selected`. A new repository needs adding to both
   installations' repository lists before either app does anything on it at
   all; until then, `CodeRabbit` posts no status and Renovate opens nothing.
-- **Nothing, for the bot schedules.** Both Dependabot and Renovate run daily
-  in every repository in this organization, so a repository created from this
+- **Nothing, for the bot schedule.** Renovate runs daily in every
+  repository in this organization, so a repository created from this
   template needs no schedule picked for it and can collide with no sibling.
+  This repository has no Dependabot configuration, so Dependabot opens no
+  version update pull requests here.
 
   This used to be a real setup step. Each repository's Dependabot took a
   different weekday out of a table in `ivan-pinatti-labs/.github`'s
   `docs/BOT_SCHEDULE.md`, so that two repositories' bots would not open pull
   requests in the same hour and queue behind each other for CodeRabbit's
   installation-wide review quota. The premise did not hold: a pin-only bump
-  from *either* bot resolves `Review Verified` through
-  the shared review verdict's bot lane without CodeRabbit ever being
-  asked, so neither competes for that quota. The table was dropped on
-  2026-09-02 and Dependabot moved to daily alongside Renovate. See that
-  repository's `README.md` under "Dependency policy".
+  resolves `Review Verified` through the shared review verdict's bot lane
+  without CodeRabbit ever being asked, so it does not compete for that
+  quota. The table was dropped on 2026-09-02. See that repository's
+  `README.md` under "Dependency policy".
 
 ---
 
