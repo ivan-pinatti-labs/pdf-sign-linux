@@ -1,0 +1,134 @@
+---
+version: 2
+
+# Present but disabled: every block below carries open-pull-requests-limit: 0,
+# which is GitHub's own documented, supported way to turn version updates off
+# for an ecosystem without deleting its definition. That limit governs
+# version updates only; it does not touch Dependabot's alert driven security
+# updates, a separate repository setting (Settings, Code security,
+# "Dependabot security updates") independent of this file, so a security
+# pull request can still appear here even while every block below reads 0.
+# Renovate is this template's active default for both ecosystems below
+# (github-actions, pre-commit) instead; see renovate.json5's github-actions
+# and pre-commit managers. This file stays fully configured, not stripped
+# down, so a project created from this template starts from real config
+# rather than a placeholder, but switching an ecosystem back to Dependabot
+# takes two edits, not one: raise that ecosystem's open-pull-requests-limit
+# back to 5 here, and remove that same ecosystem's manager from
+# renovate.json5's enabledManagers (or otherwise narrow it out). Doing only
+# the first leaves both bots watching the same files, which opens duplicate,
+# competing pull requests for the same pin the moment a version moves.
+# Every comment below, including the schedule and cooldown reasoning, is
+# still the reasoning that would apply the moment a block's limit goes back
+# up.
+#
+# Dependabot handles GitHub Actions and pre-commit hook revs when enabled;
+# Renovate handles the development container's base image digest, which Dependabot
+# cannot parse. See renovate.json5 in this directory.
+#
+# Daily, matching Renovate and every other repository in this organization.
+# Note that Dependabot's "daily" means weekdays only, not all seven days.
+#
+# This was Saturday until 2026-09-02, one weekday out of a per-repository
+# table in ivan-pinatti-labs/.github's docs/BOT_SCHEDULE.md, so that two
+# repositories' bots would not open pull requests in the same hour and queue
+# behind each other for CodeRabbit's installation-wide review quota. The
+# premise was wrong: a pin-only Dependabot bump resolves `Review Verified`
+# through the bot lane and never asks CodeRabbit for an opinion, exactly as a
+# Renovate bump does, so the table was rationing something Dependabot never
+# consumed. A repository created from this template therefore needs no slot
+# picked for it, which also removes the collision two template-derived
+# repositories used to inherit.
+updates:
+  # Covers .pre-commit-config.yaml at the repo root. Dependabot's
+  # pre-commit ecosystem only ever reads a file literally named
+  # .pre-commit-config.yaml, so if you later add other pre-commit configs
+  # elsewhere (see ivan-pinatti-labs/pre-commit-checklists' own split
+  # between dependabot.yml and renovate.json5 for why), watch them with
+  # Renovate instead. See renovate.json5 in this directory.
+  - package-ecosystem: "pre-commit"
+    directory: "/"
+    schedule:
+      interval: daily
+      time: "06:00"
+      timezone: "America/Toronto"
+    # Seven days, matching Renovate's minimumReleaseAge in renovate.json5.
+    # Applies to version updates only, never to Dependabot security
+    # updates, the same carve-out as vulnerabilityAlerts.minimumReleaseAge:
+    # null there. default-days is the only key used: GitHub's semver-major/
+    # minor/patch-days keys apply only to an ecosystem list that includes
+    # neither pre-commit nor github-actions, so setting them here would be
+    # configuration that silently does nothing. See ivan-pinatti-labs/.github's
+    # README.md, "Both bots wait seven days".
+    #
+    # A weekly schedule stacked on this window rather than overlapping it: a
+    # release published just after the weekly run was still too new at the
+    # next one, so a version update could take up to 14 days rather than the 7
+    # the cooldown names. That was tolerated here on the grounds that the cost
+    # is staleness rather than exposure, that longer is the safe direction for
+    # a supply chain window, and that Dependabot security updates bypass both
+    # cooldown and schedule so nothing urgent was waiting behind it.
+    #
+    # That argument still holds on its own terms, and it is not why the
+    # schedule changed. What it was trading against turned out to be worth
+    # nothing: the weekday bought a slot in a table protecting a review quota
+    # Dependabot never spent. With nothing on the other side of the trade,
+    # a floor that is 7 days and predictable beats one that is 7 to 14
+    # depending on the day of the week a release lands.
+    cooldown:
+      default-days: 7
+    labels:
+      - dependencies
+      - pre-commit
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    # 0: disabled. Renovate's pre-commit manager (renovate.json5) is this
+    # template's active default for this ecosystem instead. Raising this
+    # back to 5 is one of two edits needed to run Dependabot here again; the
+    # other is removing "pre-commit" from renovate.json5's enabledManagers,
+    # or both bots open competing pull requests for the same rev: pin. See
+    # the file header above.
+    open-pull-requests-limit: 0
+
+  # Covers every uses: line under .github/workflows/. Pin actions to a full
+  # commit SHA with a trailing "# vX.Y.Z" comment (see the workflows in
+  # this directory for the pattern) so Dependabot can resolve a bump.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: daily
+      time: "06:00"
+      timezone: "America/Toronto"
+    # Same seven day cooldown as the pre-commit block above, and the same
+    # default-days-only reasoning; see its comment and
+    # README.md's "Both bots wait seven days".
+    cooldown:
+      default-days: 7
+    labels:
+      - dependencies
+      - github-actions
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    # 0: disabled. Renovate's github-actions manager (renovate.json5) is
+    # this template's active default for this ecosystem instead. Raising
+    # this back to 5 is one of two edits needed to run Dependabot here
+    # again; the other is removing "github-actions" from renovate.json5's
+    # enabledManagers, or both bots open competing pull requests for the
+    # same action pin. See the file header above.
+    open-pull-requests-limit: 0
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+
+  # Add an ecosystem block for whatever this project actually depends on
+  # once you know its language, for example:
+  #
+  # - package-ecosystem: "REPLACE_ME_ECOSYSTEM" # npm, pip, docker, ...
+  #   directory: "/"
+  #   schedule:
+  #     interval: weekly
+  #   labels:
+  #     - dependencies

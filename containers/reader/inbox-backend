@@ -11,18 +11,21 @@ title=$(printf '%s' "$3" | tr -c 'A-Za-z0-9._-' '_' | sed 's/^_*//; s/_*$//' | c
 base="/work/${title:-printed}-$(date +%Y%m%d-%H%M%S)"
 out="$base.pdf"
 n=2
-while [ -e "$out" ]; do out="$base-$n.pdf"; n=$((n + 1)); done
+while [ -e "$out" ]; do
+  out="$base-$n.pdf"
+  n=$((n + 1))
+done
 in="${6:-}"
 if [ -z "$in" ]; then
   in="$(mktemp)"
-  cat > "$in"
+  cat >"$in"
 fi
 # Vector PDF (keeps text sharp); if the job refuses to be converted, render
 # it to page images instead, as a printer would. Overprint is a print-shop
 # setting Reader turns on for black artwork; kept in a PDF, it makes viewers
 # paint such logos as solid black boxes.
 if gs -q -dSAFER -dBATCH -dNOPAUSE -sDEVICE=pdfwrite -dPreserveOverprintSettings=false \
-     -o "$out.part" "$in" 2>/dev/null; then
+  -o "$out.part" "$in" 2>/dev/null; then
   :
 else
   echo "INFO: vector conversion failed, rendering pages as images" >&2

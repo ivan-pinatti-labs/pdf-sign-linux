@@ -1,0 +1,73 @@
+---
+name: CodeRabbit Gate
+
+# Calls the organization's shared gate, which publishes the two required
+# contexts branch protection cannot decide on its own:
+#
+#   Pin Only        whether a dependency bot's diff changes nothing but pins
+#   Review Verified whether CodeRabbit actually reviewed this head, rather
+#                   than reporting green on a skip or a rate limited decline
+#
+# The grading code lives in ivan-pinatti-labs/gh-actions and used to live here,
+# as a 666 line scripts/assert-pin-only-diff.py and a 172 line
+# scripts/coderabbit-review-verdict.py, alongside five other copies of each.
+# Only two of those six were ever tested.
+#
+# Pinned by SHA, never by tag or branch. The workflow reads its own library at
+# that same commit through job.workflow_sha, so pinning this pins the code that
+# grades merges here, with no second pin that could drift. A floating tag would
+# resolve at run time and give that guarantee away.
+#
+# Renovate bumps the pin. Because changing a pinned `uses:` is itself a
+# pin-only diff, `Pin Only` passes and the bot lane merges the bump
+# unattended, so a fix upstream arrives here without anyone doing anything.
+#
+# .github/pin-only.yml says what a bot may change here. It is read from the
+# default branch, never from the pull request being graded, and is deliberately
+# not in its own allowed_paths, so a bot cannot widen its own lane.
+
+"on":
+  # zizmor: ignore[dangerous-triggers]
+  #
+  # Never checks out the pull request. The shared workflow pins its checkout to
+  # the default branch and reads the pull request only as API data.
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+  status:
+  schedule:
+    # Unchanged from this repository's own previous schedule.
+    - cron: "53 * * * *"
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: >-
+          Pull request number to re-grade. Blank re-grades every open pull
+          request, which is the useful default for recovering from a missed
+          schedule slot rather than diagnosing one pull request.
+        required: false
+        type: string
+  merge_group:
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    # A pinned reusable workflow reference is one scalar: the path and the
+    # 40 character SHA cannot be wrapped, and shortening either would mean
+    # giving up the pin. The disable has to sit immediately above the line it
+    # covers, not above this explanation.
+    #
+    # The trailing `# v0.1.0` is not decoration. Renovate's github-actions
+    # manager reads the current version out of that comment, and a bare SHA
+    # without one is a dependency it cannot resolve a version for, so it
+    # proposes nothing and the pin never moves. Every other pinned `uses:` in
+    # this organization carries the same shape.
+    # yamllint disable-line rule:line-length
+    uses: ivan-pinatti-labs/gh-actions/.github/workflows/reusable-coderabbit-gate.yml@0828ec87b62933769de0c3d0053530f98524f2e1 # v0.1.0
+    permissions:
+      contents: read
+      pull-requests: read
+      statuses: write
+    with:
+      pr_number: ${{ github.event.inputs.pr_number }}

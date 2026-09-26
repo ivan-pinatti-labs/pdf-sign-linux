@@ -1,0 +1,64 @@
+---
+name: Stale
+
+# Replaces the .github/stale.yml this template used to carry. That file
+# configured the Probot Stale GitHub App, which is archived upstream
+# (probot/stale, last pushed May 2023), so it never did anything here: the
+# app it configured cannot be installed. actions/stale is GitHub's own
+# maintained replacement, and being an action it needs a workflow rather
+# than a config file.
+#
+# This is a template repository: the settings below are a starting point,
+# not a fixed policy. A project created from this template should revisit
+# the schedule, the day thresholds, and the exempt labels once it knows its
+# own pace of activity.
+
+"on":
+  schedule:
+    # Once a week is plenty for a repository this size, and it keeps the
+    # job well clear of the API budget a daily sweep would spend. A
+    # busier project created from this template may want this more
+    # frequent.
+    - cron: "30 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  stale:
+    name: Mark Stale Issues and Pull Requests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Mark and close stale items
+        uses: actions/stale@4391f3da665fdf50b6810c1a66712fb9ba21aa93 # v11.0.0
+        with:
+          # 60 days to stale, 14 more to close: carried over from the old
+          # Probot config. Tune both once the project created from this
+          # template has a sense of its own review cadence.
+          days-before-stale: 60
+          days-before-close: 14
+          # Carried over from the old Probot config, which exempted these
+          # two so a pinned roadmap item or an open security report never
+          # aged out on a timer. Add or remove labels here to match
+          # whatever this project actually uses.
+          exempt-issue-labels: pinned,security
+          exempt-pr-labels: pinned,security
+          stale-issue-label: stale
+          stale-pr-label: stale
+          stale-issue-message: >
+            This issue has had no activity for 60 days, so it is being
+            marked stale. Comment if it is still relevant, otherwise it
+            will close in 14 days.
+          stale-pr-message: >
+            This pull request has had no activity for 60 days, so it is
+            being marked stale. Comment if it is still relevant, otherwise
+            it will close in 14 days.

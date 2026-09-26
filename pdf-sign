@@ -21,7 +21,10 @@ STATE="${PDF_SIGN_STATE:-${XDG_DATA_HOME:-$HOME/.local/share}/pdf-sign}"
 IMAGE="${PDF_SIGN_IMAGE:-localhost/pdf-sign-reader:latest}"
 PREFIX=/opt/wine/prefix
 
-die() { echo "pdf-sign: $*" >&2; exit 1; }
+die() {
+  echo "pdf-sign: $*" >&2
+  exit 1
+}
 info() { echo "pdf-sign: $*" >&2; }
 
 usage() { sed -n '2,14s/^# \{0,1\}//p' "$0"; }
@@ -46,8 +49,8 @@ wayland_socket() {
 }
 
 require_wayland() {
-  [[ -n "${WAYLAND_DISPLAY:-}" && -S "$(wayland_socket)" ]] \
-    || die "needs a Wayland desktop session (WAYLAND_DISPLAY not set or socket missing)"
+  [[ -n "${WAYLAND_DISPLAY:-}" && -S "$(wayland_socket)" ]] ||
+    die "needs a Wayland desktop session (WAYLAND_DISPLAY not set or socket missing)"
 }
 
 wayland_args() {
@@ -66,7 +69,7 @@ wayland_args() {
 selinux_args() {
   [[ -e /sys/fs/selinux/enforce ]] && [[ "$(cat /sys/fs/selinux/enforce)" == 1 ]] || return 0
   if podman run --rm --network=none --security-opt label=type:pdf_sign_t \
-       --entrypoint true "$IMAGE" >/dev/null 2>&1; then
+    --entrypoint true "$IMAGE" >/dev/null 2>&1; then
     printf '%s\n' --security-opt=label=type:pdf_sign_t
   elif [[ "${PDF_SIGN_NO_SELINUX:-}" == 1 ]]; then
     info "SELinux module not installed; running with SELinux labeling disabled"
@@ -159,7 +162,10 @@ cmd_open() {
   appdata="$PREFIX/drive_c/users/$(id -un)/AppData/Roaming/Adobe"
   mkdir -p "$STATE/profile" "$STATE/adobe-appdata"
   local -a args
-  mapfile -t args < <(common_args; wayland_args)
+  mapfile -t args < <(
+    common_args
+    wayland_args
+  )
   podman run "${args[@]}" "${selinux[@]}" \
     -v "$STATE/profile:/state:rw,Z" \
     -v "$STATE/adobe-appdata:$appdata:rw,Z" \
@@ -168,8 +174,17 @@ cmd_open() {
 }
 
 case "${1:-}" in
-  build) shift; cmd_build "$@" ;;
-  open) shift; cmd_open "$@" ;;
-  -h|--help|help|"") usage ;;
-  *) usage >&2; exit 2 ;;
+build)
+  shift
+  cmd_build "$@"
+  ;;
+open)
+  shift
+  cmd_open "$@"
+  ;;
+-h | --help | help | "") usage ;;
+*)
+  usage >&2
+  exit 2
+  ;;
 esac

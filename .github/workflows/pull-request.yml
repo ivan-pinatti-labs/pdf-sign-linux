@@ -1,0 +1,259 @@
+---
+name: PR Validation
+
+# One gate on every pull request against main: pre-commit, plus a labeler
+# pass. Nothing here needs a personal access token; a public repo cloning
+# itself, applying labels, and commenting on the PR is everything the
+# default GITHUB_TOKEN is scoped for. Pre-commit here is a gate, not a
+# fixer: a hook that finds a problem fails the job, and nothing in this
+# workflow commits or pushes to the PR branch on its own. A repository
+# created from this template inherits that behavior unchanged.
+#
+# The pre-commit job below publishes the exact check context "Pre-commit"
+# (its name:, not its job id), because docs/MERGE_PIPELINE.md's
+# bot-auto-merge.yml hardcodes that string as
+# a required context to wait on. It was named "Pre-Commit Checks" before the
+# org's merge pipeline was ported in; renaming a required check's context
+# after branch protection already requires the old name breaks the very
+# next pull request until branch protection is updated to match, which is
+# why that update is part of the same change that renamed this job.
+#
+# A pull request opened from a fork gets a read only GITHUB_TOKEN, so
+# labeler and the "Post Pre-Commit Log" job below, the only two things
+# here that need pull-requests: write, are guarded at the job level with
+# github.event.pull_request.head.repo.full_name == github.repository.
+# The guard sits on the job rather than on a step inside it, because a
+# step level guard still stands the job up and grants it write
+# permission before deciding not to use it; a job level guard means
+# neither job is even scheduled for a fork's pull request.
+#
+# full_name == github.repository rather than the more obvious
+# head.repo.fork != true: GitHub Actions coerces a type mismatched
+# comparison to numbers (null to 0, true to 1, false to 0), so on a
+# null head.repo, which happens once a pull request's source fork has
+# since been deleted, or on a trigger with no pull_request context at
+# all, fork != true and fork == false both coerce to 0 against 0 or 1
+# and read as "not a fork," the wrong answer; confirmed against
+# GitHub's documented expression coercion rules and reproduced live
+# against a scratch workflow. Comparing full_name against
+# github.repository instead compares two strings when the pull request
+# is genuinely from this repository, and coerces a null full_name to
+# NaN otherwise, which is never equal to anything; a missing head.repo
+# therefore fails the guard instead of silently passing it.
+#
+# The pre-commit job itself carries no such guard and keeps only
+# contents: read: it runs the pull request's own hook code, and a read
+# only token is exactly the safe scope for a job that executes
+# untrusted input, fork or not. That job's result and log are exposed
+# as outputs so the comment job can report them without checking out
+# anything or running a line of hook code itself.
+
+"on":
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+  # Required checks are evaluated against the merge queue's own temporary
+  # commit, not a pull request's head, once main's merge_group ruleset is
+  # in place (see docs/MERGE_PIPELINE.md). This job needs the trigger or the
+  # queue stalls forever waiting for a "Pre-commit" context that never gets
+  # republished on its commit. Harmless with no merge_group ruleset
+  # configured: the trigger simply never fires, which is the state a repo
+  # created from this template starts in until it sets one up.
+  merge_group:
+
+# A new push supersedes whatever this workflow is still doing for the same
+# PR, so a rapid series of pushes doesn't leave several stale runs racing
+# each other. github.event.pull_request.number is unset on a merge_group
+# event, so that alone would put every merge-queue run into the same group
+# and let cancel-in-progress cancel a run the queue still needs; falling
+# back to merge_group.head_ref (unique per queue entry) and then github.ref
+# keeps each queue entry, and any other trigger shape, in its own group.
+concurrency:
+  group: >-
+    ${{ github.workflow }}-${{ github.event.pull_request.number ||
+    github.event.merge_group.head_ref || github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  labeler:
+    name: Labeler
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    # See the file header for why this compares full_name to
+    # github.repository rather than testing head.repo.fork directly: a
+    # null head.repo fails this guard instead of silently passing it.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          # This job only reads the tree to decide which labels apply; it
+          # never pushes, so the checkout has no use for a persisted
+          # credential.
+          persist-credentials: false
+
+      - name: Apply labels from .github/labeler.yml
+        uses: actions/labeler@bf12e9b00b37c5c0ca2b87b79b2daf7891dbda13 # v7.0.0
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+  pre-commit:
+    name: Pre-commit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    outputs:
+      log: ${{ steps.capture.outputs.log }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          # No ref: override. The default for a pull_request event is
+          # GitHub's merge ref, the PR branch merged into main, which is
+          # what will actually land if the PR is merged, and that is the
+          # more useful thing for a quality gate to check than the head
+          # branch tip. This job never pushes, so the checkout also has no
+          # use for a persisted credential.
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Cache pre-commit hook environments
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit|${{ hashFiles('.pre-commit-config.yaml') }}
+          restore-keys: |
+            pre-commit|
+
+      # Add extra setup steps here once this project needs a toolchain
+      # a hook depends on being already on PATH, for example
+      # hashicorp/setup-terraform for checklist-dev-terraform, or
+      # actions/setup-node for a JavaScript or TypeScript checklist.
+
+      - name: Install pre-commit
+        run: pip install "pre-commit==4.5.1"
+
+      # A hook that only reformats, such as end-of-file-fixer, still exits
+      # non-zero on the run that first finds the problem, even though the
+      # fix is applied to the runner's working tree; pipefail carries that
+      # non-zero exit through tee so the step, and therefore the job,
+      # fails on it same as any other finding. Nothing here commits or
+      # pushes: a finding a hook could fix locally is still a finding this
+      # job reports and fails on.
+      - name: Run pre-commit
+        shell: bash
+        run: |
+          set -o pipefail
+          pre-commit run --all-files --show-diff-on-failure --color always 2>&1 | tee pre-commit.log
+
+      # Captured as a job output rather than posted from here, so the step
+      # that holds pull-requests: write lives in its own job with no
+      # checkout and no hook code; see "Post Pre-Commit Log" below. This
+      # step needs none of that: it only reads a file this job already
+      # produced and writes plain text to its own output.
+      #
+      # always(), because the log is worth posting whether pre-commit
+      # passed or failed, and a failed "Run pre-commit" step would
+      # otherwise skip everything after it.
+      - name: Capture pre-commit log for the PR comment
+        id: capture
+        if: always()
+        shell: bash
+        run: |
+          if [ -f pre-commit.log ]; then
+            # ANSI color codes survive `--color always` into the log
+            # file; GitHub renders them as literal escape junk inside a
+            # fenced code block, so strip them rather than translate
+            # them to Markdown.
+            esc=$'\x1b'
+            log=$(sed -E "s/${esc}\[[0-9;]*m//g" pre-commit.log)
+          else
+            log="(no log was produced)"
+          fi
+
+          max_length=60000
+          if [ "${#log}" -gt "$max_length" ]; then
+            log="${log:0:$max_length}"$'\n'"... (log truncated)"
+          fi
+
+          # A random delimiter, not a fixed word such as EOF, so a log
+          # line that happens to read like the delimiter cannot end the
+          # output early and splice arbitrary extra "outputs" in behind
+          # it.
+          delimiter=$(openssl rand -hex 16)
+          {
+            echo "log<<$delimiter"
+            echo "$log"
+            echo "$delimiter"
+          } >> "$GITHUB_OUTPUT"
+
+  pr-comment:
+    name: Post Pre-Commit Log
+    needs: pre-commit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    # !cancelled() rather than always(): the log is worth posting whether
+    # pre-commit passed or failed, but not if the run was cancelled out
+    # from under it, which always() would still post for.
+    if: >-
+      !cancelled() &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Post the pre-commit log to the PR
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          # Passed through the environment rather than spliced into the
+          # script string below: an env var is read at runtime through
+          # process.env and can never break out of its own value to run
+          # as script text, which is what keeps a pre-commit log (this
+          # job runs no checkout and no hook code itself, but the log
+          # content still originates from the pull request's own files)
+          # from being a template-injection vector here.
+          PRE_COMMIT_LOG: ${{ needs.pre-commit.outputs.log }}
+          PRE_COMMIT_RESULT: ${{ needs.pre-commit.result }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const log = process.env.PRE_COMMIT_LOG;
+
+            // A pre-commit diff can itself contain a fenced code block
+            // (for example, one shown for a Markdown file), which would
+            // otherwise close the ```text fence below early and leave
+            // the rest of the log rendered as raw Markdown. A fence one
+            // backtick longer than the longest run already in the log
+            // can never be closed early by the log's own content.
+            const longestBacktickRun = Math.max(
+              0,
+              ...Array.from(log.matchAll(/`+/g), (match) => match[0].length),
+            );
+            const fence = "`".repeat(Math.max(3, longestBacktickRun + 1));
+
+            const header =
+              process.env.PRE_COMMIT_RESULT === "success"
+                ? "### Pre-commit passed"
+                : "### Pre-commit failed";
+
+            const commentBody =
+              `${header}\n<details>\n<summary>Show pre-commit log</summary>\n\n` +
+              `${fence}text\n${log}\n${fence}\n</details>`;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: commentBody,
+            });

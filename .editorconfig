@@ -1,0 +1,37 @@
+# EditorConfig is awesome: https://EditorConfig.org
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_size = 2
+indent_style = space
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{yml,yaml}]
+indent_style = space
+indent_size = 2
+
+[*.md]
+# indent_size explicitly unset (not just omitted: EditorConfig sections
+# cascade, so leaving this out would still inherit indent_size=2 from
+# [*] above). editorconfig-checker validates indentation as multiples of
+# indent_size whenever both keys resolve to a value, and ordered-list
+# continuation lines (e.g. under "1. ") naturally hang at 3 or 4 spaces,
+# not 2, and license text such as LICENSE.md's Apache boilerplate hangs
+# at other widths again. Enforcing a fixed indent_size here would flag
+# both as violations, unrelated to the whitespace bugs this file exists
+# to catch.
+indent_size = unset
+# max_line_length is off here on purpose: markdownlint's MD013 already
+# enforces Markdown line length, with exceptions editorconfig-checker has
+# no equivalent for (tables, code blocks, an inline disable for long
+# URLs). Leaving both tools enforcing the same rule means the one without
+# exceptions wins. (off, not 0: editorconfig-checker reads a literal 0 as
+# "lines must be 0 characters long", not "unlimited".)
+max_line_length = off
+trim_trailing_whitespace = false
+
+[Makefile]
+indent_style = tab

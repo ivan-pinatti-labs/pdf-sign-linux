@@ -1,0 +1,217 @@
+---
+# pre-commit config, started from ivan-pinatti-labs/github-template. Pulls
+# the checklists from ivan-pinatti-labs/pre-commit-checklists: file hygiene,
+# spelling, the common structured file types, credential scanning, the git
+# message and branch name guards, and the languages this repository is
+# written in (shell, Python, Make, the Containerfile). See
+# https://github.com/ivan-pinatti-labs/pre-commit-checklists/blob/main/docs/hook-catalogue.md
+# for the full list.
+#
+# checklist-dev-dotenv is deliberately not selected below: since
+# pre-commit-checklists v1.1.0 it shells out to Docker or Podman (see that
+# library's docs/hook-catalogue.md), and a generic starter should not make
+# every new repo depend on a container runtime for something as narrow as
+# .env linting. Add it yourself, once your new repo actually has .env
+# files and you have confirmed Docker or Podman will be on every
+# contributor's PATH, with a files: '(^|/)\.env(\..+)?$' selector.
+#
+# checklist-github-actions below does have a Docker dependency of its own
+# (actionlint-docker runs in a container) and a Python 3.10 or newer
+# dependency (zizmor, an offline only workflow security auditor with no
+# token requirement); see this repo's README for why both are kept
+# anyway.
+#
+# After cloning, run:
+#
+#   pre-commit install
+#   pre-commit run --all-files
+#
+# One id below (checklist-git-commit-msg) runs at the commit-msg git hook
+# stage instead of pre-commit, so default_install_hook_types wires up both
+# stages. Every other hook is pinned to stages: [pre-commit] so it does not
+# also re-run during that commit-msg invocation.
+default_install_hook_types: [pre-commit, commit-msg]
+repos:
+  - repo: https://github.com/ivan-pinatti-labs/pre-commit-checklists
+    # Bump this to whatever https://github.com/ivan-pinatti-labs/pre-commit-checklists/releases
+    # lists as latest; see that library's docs/versioning.md for what the
+    # pin means and how a bump can change hook behavior.
+    rev: v3.2.1
+    hooks:
+      # Large-file/merge-conflict/line-ending hygiene, safe on any repo.
+      - id: checklist-basic
+        stages: [pre-commit]
+
+      # Spell-checks every file cspell can read; tune words in .cspell.json.
+      # .secrets.baseline is excluded here, not just in .cspell.json's own
+      # ignorePaths: cspell exits nonzero when a batch of files pre-commit
+      # hands it happens to contain only paths its own ignorePaths already
+      # excludes, since it then reports zero files checked as an error.
+      # Excluding it at the pre-commit level keeps it out of every batch.
+      # selinux/pdf_sign.cil is excluded the same way: it is generated
+      # policy, a list of SELinux type and permission names.
+      - id: checklist-spell
+        exclude: ^(\.secrets\.baseline|selinux/pdf_sign\.cil)$
+        stages: [pre-commit]
+
+      # Lints and link-checks Markdown.
+      - id: checklist-markdown
+        types: [markdown]
+        stages: [pre-commit]
+        # docs/STARTER_README.md is a template rather than a document, and
+        # its links are correct only after it is moved. Its badge URLs carry
+        # REPLACE_ME placeholders that resolve to nothing, and its LICENSE.md
+        # link is relative to the repository root it gets moved to, not to
+        # docs/ where it sits. Link-checking it in place would demand it be
+        # wrong for its actual purpose to pass here.
+        exclude: ^docs/STARTER_README\.md$
+
+      # Validates JSON syntax and formats with Prettier. types_or: [json,
+      # json5], not a plain types: [json]: .github/renovate.json5 is typed
+      # json5 by identify, not json, so a plain types: [json] would match
+      # nothing on it at all. check-json self-filters on its own
+      # types: [json] and never sees the json5 file, which is correct: it is
+      # a strict JSON parser and renovate.json5 has comments and unquoted
+      # keys. Prettier reads json5 natively and formats it.
+      - id: checklist-json
+        types_or: [json, json5]
+        stages: [pre-commit]
+
+      # Validates YAML syntax, lints with yamllint, formats with Prettier.
+      - id: checklist-yaml
+        types: [yaml]
+        stages: [pre-commit]
+
+      # CITATION.cff needs its own hook, below, and cannot be reached from
+      # this id. See that hook for why.
+
+      # Validates TOML syntax.
+      - id: checklist-toml
+        types: [toml]
+        stages: [pre-commit]
+
+      # Validates XML syntax.
+      - id: checklist-xml
+        types: [xml]
+        stages: [pre-commit]
+
+      # Checks .editorconfig rules are respected.
+      - id: checklist-dev-editorconfig
+        stages: [pre-commit]
+
+      # Blocks committed private keys and known secret patterns. Requires
+      # a .secrets.baseline file at the repo root; see
+      # ivan-pinatti-labs/pre-commit-checklists' scripts/install.sh to generate one.
+      - id: checklist-security-credentials
+        stages: [pre-commit]
+
+      # Rejects branch names that skip a naming convention. No ticket prefix
+      # is required by default.
+      - id: checklist-git-valid-branches
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
+      # Rejects commit messages that are not Conventional Commits. No ticket
+      # prefix is required by default.
+      - id: checklist-git-commit-msg
+        stages: [commit-msg]
+        files: ^\.git/COMMIT_EDITMSG$
+
+      # Blocks direct commits to long-lived branches (main, master, develop,
+      # staging by default).
+      - id: checklist-git-protected-branches
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
+      # Lints GitHub Actions workflow files with actionlint-docker (needs
+      # Docker on PATH) and audits them with zizmor (needs Python 3.10 or
+      # newer on PATH, offline audits only, no token required); see this
+      # repo's README. This id's own files: pattern already reaches every
+      # workflow the merge pipeline adds (coderabbit-gate.yml,
+      # bot-auto-merge.yml) since both live under .github/; no separate
+      # selector is needed for those.
+      - id: checklist-github-actions
+        files: ^\.github/
+        stages: [pre-commit]
+
+      # check-ast, check-builtin-literals, debug-statements,
+      # requirements-txt-fixer, ruff-check --fix, ruff-format, over every
+      # Python file (today selinux/generate.py, the policy generator).
+      - id: checklist-dev-python
+        files: \.py$
+        stages: [pre-commit]
+
+      # shebang checks, shellcheck and shfmt over every shell script. No
+      # selector: types: [shell] finds the extensionless ones by their
+      # shebang (pdf-sign, start-reader, inbox-backend).
+      - id: checklist-dev-shell
+        stages: [pre-commit]
+
+      # hadolint over the image definition. identify tags a Containerfile as
+      # a dockerfile, so the id's own types: [dockerfile] selector finds it.
+      - id: checklist-dev-docker
+        stages: [pre-commit]
+
+      # checkmake over the Makefile this template now ships. Read the
+      # library's checklist-dev-make.yaml before adding a target: checkmake
+      # reads only the first physical line of a .PHONY declaration and
+      # silently drops backslash continuations, so every .PHONY in the
+      # Makefile is written on one line.
+      - id: checklist-dev-make
+        stages: [pre-commit]
+
+  # CITATION.cff is the one file here that no checklist reaches. It is YAML,
+  # but `identify` tags it only `text`, since the tag comes from the extension
+  # and `.cff` is not one it knows. Widening checklist-yaml's `types:`
+  # selector above cannot help: check-yaml and yamllint both carry
+  # `types: [file, yaml]` in their own manifests, which pre-commit ANDs with
+  # whatever a consumer asks for, so the file is dropped by the hook rather
+  # than by the id's selector. Overriding `types:` on the hook itself is the
+  # way in, and that can only be done where the hook is declared, which is
+  # here.
+  #
+  # Worth covering because GitHub reads this file for the "Cite this
+  # repository" widget, where a file it cannot use produces no error anyone
+  # would see.
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.38.0
+    hooks:
+      - id: yamllint
+        name: yamllint (CITATION.cff)
+        files: ^CITATION\.cff$
+        types: [text]
+        stages: [pre-commit]
+
+  # The other half of that check, commented out because it cannot pass here.
+  #
+  # yamllint above proves the file parses; it knows nothing about the Citation
+  # File Format schema, and that gap is not theoretical. The author block in
+  # this template's own CITATION.cff used to read `name:` and `url:`, and
+  # `url` is not a key CFF has at all (the person and entity definitions both
+  # spell it `website`), so every repository created from this template
+  # started life with a citation file no tool could use. It parsed as YAML
+  # perfectly well the whole time.
+  #
+  # cffconvert is the reference implementation's own validator and would have
+  # caught it, but it cannot run against this file while the REPLACE_ME
+  # placeholders are still in place: `date-released: "REPLACE_ME_DATE"` is not
+  # a date, and the schema says so. Filling a real date in to satisfy it would
+  # remove the placeholder from the `REPLACE_ME` search the README tells you
+  # to run, which is worse than the check being absent.
+  #
+  # The placeholders in CITATION.cff are filled in, so it runs here.
+  # pass_filenames is false with the path written out because cffconvert takes
+  # its input through `-i` and rejects a bare positional argument; `files:`
+  # still scopes it to that one file.
+  - repo: local
+    hooks:
+      - id: cffconvert-validate
+        name: cffconvert --validate (CITATION.cff)
+        language: python
+        additional_dependencies: ["cffconvert==2.0.0"]
+        entry: cffconvert --validate -i CITATION.cff
+        files: ^CITATION\.cff$
+        pass_filenames: false
+        stages: [pre-commit]

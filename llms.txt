@@ -1,0 +1,39 @@
+# pdf-sign-linux
+
+> Fill in and sign PDF documents on Linux with Adobe Reader XI under Wine, in
+> an offline, rootless, SELinux confined podman container.
+> Apache License 2.0. Author: Ivan Pinatti (https://github.com/ivan-pinatti).
+> Canonical repository: https://github.com/ivan-pinatti-labs/pdf-sign-linux
+
+## What it does
+
+Runs the Windows Adobe Reader XI under Wine inside a podman container with no
+network, for documents that other Linux PDF tools cannot handle, such as the
+dynamic XFA forms on Canadian government sites. One command opens a document
+in Reader to fill in, print (to a PDF in the project's inbox), sign with a
+saved signature image, and save. Adobe Reader and Microsoft's core fonts are
+downloaded by each user's local build and never shipped by this repository.
+
+## Key files
+
+- [README.md](README.md): Usage, folders, isolation model, legal notes
+- [pdf-sign](pdf-sign): Launcher (build, open), container arguments
+- [Makefile](Makefile): make build, make selinux, make open
+- [containers/reader/Containerfile](containers/reader/Containerfile): The image: Wine, Reader, fonts, private Xwayland and CUPS
+- [containers/reader/start-reader](containers/reader/start-reader): Entrypoint: print server, X server, Reader, clean shutdown
+- [containers/reader/inbox-backend](containers/reader/inbox-backend): CUPS backend that saves print jobs as PDFs
+- [selinux/generate.sh](selinux/generate.sh): Generates selinux/pdf_sign.cil (container_t plus Wayland) from the loaded policy
+- [inbox/](inbox/README.md): Documents in and out; contents are never committed
+
+## Tech stack
+
+- Bash and POSIX sh, Python (policy generator), GNU Make
+- Podman (rootless), Debian 13, Wine, Xwayland, matchbox, CUPS, Ghostscript, qpdf
+- SELinux CIL policy module
+
+## Conventions
+
+- Conventional Commits for commit messages, no ticket prefix baked in
+- pre-commit hooks wired up via
+  [ivan-pinatti-labs/pre-commit-checklists](https://github.com/ivan-pinatti-labs/pre-commit-checklists),
+  see [.pre-commit-config.yaml](.pre-commit-config.yaml)
