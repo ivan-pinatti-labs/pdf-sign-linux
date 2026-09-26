@@ -1,0 +1,175 @@
+#!/usr/bin/env bash
+# Fill and sign PDFs offline with Adobe Reader XI (Windows, under Wine) in a
+# rootless podman container.
+#
+#   pdf-sign build [ARGS]   build the image (ARGS go to podman build)
+#   pdf-sign open [FILE]    open FILE in Reader: fill, sign, print, save
+#
+# Forms that carry an Adobe usage-rights seal are opened from an unlocked
+# copy (<name>-unlocked.pdf), because Reader locks every field when a seal is
+# broken, as on several government forms.
+#
+# The container gets no network, no capabilities, and only three folders: the
+# inbox (documents in and out) and two for saved state (Reader settings and your
+# saved signature).
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+INBOX="${PDF_SIGN_INBOX:-$SCRIPT_DIR/inbox}"
+STATE="${PDF_SIGN_STATE:-${XDG_DATA_HOME:-$HOME/.local/share}/pdf-sign}"
+IMAGE="${PDF_SIGN_IMAGE:-localhost/pdf-sign-reader:latest}"
+PREFIX=/opt/wine/prefix
+
+die() { echo "pdf-sign: $*" >&2; exit 1; }
+info() { echo "pdf-sign: $*" >&2; }
+
+usage() { sed -n '2,14s/^# \{0,1\}//p' "$0"; }
+
+# Arguments shared by every container: offline, unprivileged, files owned by
+# the calling user, inbox mounted at /work.
+common_args() {
+  mkdir -p "$INBOX"
+  printf '%s\n' \
+    --rm --network=none \
+    --userns=keep-id --user "$(id -u):$(id -g)" \
+    --cap-drop=ALL --security-opt=no-new-privileges \
+    -v "$INBOX:/work:rw,z" -w /work
+}
+
+# The host Wayland socket, and nothing else from the desktop: no X11 display,
+# D-Bus, PipeWire or portals, so no screen capture. Reader runs on a private
+# X server inside the container, so it never sees the host clipboard. X11
+# hosts are refused, because any X11 client can read the whole display.
+wayland_socket() {
+  printf '%s\n' "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/${WAYLAND_DISPLAY:-}"
+}
+
+require_wayland() {
+  [[ -n "${WAYLAND_DISPLAY:-}" && -S "$(wayland_socket)" ]] \
+    || die "needs a Wayland desktop session (WAYLAND_DISPLAY not set or socket missing)"
+}
+
+wayland_args() {
+  local uid
+  uid="$(id -u)"
+  printf '%s\n' \
+    -v "$(wayland_socket):/run/user/$uid/wayland-0:ro" \
+    --tmpfs "/run/user/$uid:rw,mode=0700,U" \
+    -e XDG_RUNTIME_DIR="/run/user/$uid" -e WAYLAND_DISPLAY=wayland-0
+}
+
+# SELinux: the stock container type may not use the Wayland socket, so Reader
+# runs as pdf_sign_t (selinux/pdf_sign.cil): a container type plus exactly
+# that access. Without the module, refuse rather than drop confinement,
+# unless PDF_SIGN_NO_SELINUX=1.
+selinux_args() {
+  [[ -e /sys/fs/selinux/enforce ]] && [[ "$(cat /sys/fs/selinux/enforce)" == 1 ]] || return 0
+  if podman run --rm --network=none --security-opt label=type:pdf_sign_t \
+       --entrypoint true "$IMAGE" >/dev/null 2>&1; then
+    printf '%s\n' --security-opt=label=type:pdf_sign_t
+  elif [[ "${PDF_SIGN_NO_SELINUX:-}" == 1 ]]; then
+    info "SELinux module not installed; running with SELinux labeling disabled"
+    printf '%s\n' --security-opt=label=disable
+  else
+    die "install the SELinux module once with: make selinux  (sudo semodule -i selinux/pdf_sign.cil)"
+  fi
+}
+
+# Print the path of FILE relative to the inbox, copying it in first when it
+# lives elsewhere. The original is never modified.
+stage_file() {
+  local src="$1" abs inbox_abs dest
+  [[ -f "$src" ]] || die "no such file: $src"
+  abs="$(readlink -f "$src")"
+  mkdir -p "$INBOX"
+  inbox_abs="$(readlink -f "$INBOX")"
+  if [[ "$abs" == "$inbox_abs"/* ]]; then
+    printf '%s\n' "${abs#"$inbox_abs"/}"
+    return
+  fi
+  dest="$inbox_abs/$(basename "$abs")"
+  if [[ -e "$dest" ]]; then
+    cmp -s "$abs" "$dest" || die "$(basename "$abs") already exists in $INBOX with different content; move one of them first"
+  else
+    cp -- "$abs" "$dest"
+    info "copied into inbox: $dest"
+  fi
+  printf '%s\n' "$(basename "$abs")"
+}
+
+need_image() {
+  podman image exists "$IMAGE" || die "image not built yet; run: pdf-sign build"
+}
+
+cmd_build() {
+  if [[ "${PDF_SIGN_ACCEPT_ADOBE_EULA:-}" != yes ]]; then
+    echo "Building installs Adobe Reader XI and Microsoft's core fonts silently,"
+    echo "which accepts Adobe's licence agreement for Reader and Microsoft's"
+    echo "core fonts EULA on your behalf."
+    read -r -p "Accept it and continue? [y/N] " answer
+    [[ "$answer" == [yY]* ]] || die "cancelled"
+  fi
+  podman build "$@" \
+    --build-arg UID="$(id -u)" --build-arg USERNAME="$(id -un)" \
+    -t "$IMAGE" "$SCRIPT_DIR/containers/reader"
+}
+
+# True when FILE carries Adobe usage rights (the /UR3 signature, broken on
+# some government forms).
+has_usage_rights() {
+  local -a args
+  mapfile -t args < <(common_args)
+  # shellcheck disable=SC2016 # $1 expands inside the container's shell
+  podman run "${args[@]}" -e HOME=/tmp --entrypoint sh "$IMAGE" -c \
+    'qpdf --decrypt --qdf --object-streams=disable "$1" - 2>/dev/null | grep -aq "/UR3"' \
+    sh "/work/$1"
+}
+
+# qpdf --remove-restrictions drops only the usage-rights seal; the file's
+# own encryption and permissions (which allow filling forms) stay. Prints the
+# copy's path relative to the inbox.
+unlocked_copy() {
+  local rel="$1" out
+  out="${rel%.*}-unlocked.pdf"
+  if [[ ! -f "$INBOX/$out" || "$INBOX/$rel" -nt "$INBOX/$out" ]]; then
+    local -a args
+    mapfile -t args < <(common_args)
+    podman run "${args[@]}" -e HOME=/tmp --entrypoint qpdf "$IMAGE" \
+      --remove-restrictions "/work/$rel" "/work/$out"
+    info "form has an Adobe usage-rights seal; opening a fillable copy: $INBOX/$out"
+  fi
+  printf '%s\n' "$out"
+}
+
+cmd_open() {
+  need_image
+  require_wayland
+  local rel=""
+  if [[ $# -gt 0 && -n "$1" ]]; then
+    rel="$(stage_file "$1")"
+    if [[ "$rel" != *-unlocked.pdf ]] && has_usage_rights "$rel"; then
+      rel="$(unlocked_copy "$rel")"
+    fi
+  fi
+  local -a selinux
+  mapfile -t selinux < <(selinux_args)
+  [[ ${#selinux[@]} -gt 0 || "$(cat /sys/fs/selinux/enforce 2>/dev/null)" != 1 ]] || exit 1
+  local appdata
+  appdata="$PREFIX/drive_c/users/$(id -un)/AppData/Roaming/Adobe"
+  mkdir -p "$STATE/profile" "$STATE/adobe-appdata"
+  local -a args
+  mapfile -t args < <(common_args; wayland_args)
+  podman run "${args[@]}" "${selinux[@]}" \
+    -v "$STATE/profile:/state:rw,Z" \
+    -v "$STATE/adobe-appdata:$appdata:rw,Z" \
+    -e READER_GEOMETRY="${PDF_SIGN_GEOMETRY:-1400x950}" \
+    "$IMAGE" ${rel:+"/work/$rel"}
+}
+
+case "${1:-}" in
+  build) shift; cmd_build "$@" ;;
+  open) shift; cmd_open "$@" ;;
+  -h|--help|help|"") usage ;;
+  *) usage >&2; exit 2 ;;
+esac

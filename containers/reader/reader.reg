@@ -1,0 +1,34 @@
+REGEDIT4
+
+[HKEY_CURRENT_USER\Software\Adobe\Acrobat Reader\11.0\Privileged]
+"bProtectedMode"=dword:00000000
+
+[HKEY_CURRENT_USER\Software\Adobe\Acrobat Reader\11.0\AdobeViewer]
+"EULA"=dword:00000001
+"Launched"=dword:00000001
+
+[HKEY_CURRENT_USER\Software\Adobe\Acrobat Reader\11.0\AVAlert\cCheckbox]
+"iAppDoNotTakePDFOwnershipAtLaunch"=dword:00000001
+
+[HKEY_CURRENT_USER\Software\Adobe\Acrobat Reader\11.0\SDI]
+"bMaximizeNextDocument"=dword:00000001
+"bNullDocMaximized"=dword:00000001
+
+[HKEY_CURRENT_USER\Software\Adobe\Acrobat Reader\11.0\AVGeneral]
+"bCheckForUpdatesAtStartup"=dword:00000000
+
+[HKEY_LOCAL_MACHINE\Software\Policies\Adobe\Acrobat Reader\11.0\FeatureLockDown]
+"bUpdater"=dword:00000000
+"bProtectedMode"=dword:00000000
+
+[HKEY_CURRENT_USER\Control Panel\International]
+"iPaperSize"="1"
+"iMeasure"="1"
+
+[HKEY_LOCAL_MACHINE\Software\Microsoft\Windows NT\CurrentVersion\FontSubstitutes]
+"MS Shell Dlg"="Liberation Sans"
+"MS Shell Dlg 2"="Liberation Sans"
+"Segoe UI"="Liberation Sans"
+"Tahoma"="Liberation Sans"
+"Microsoft Sans Serif"="Liberation Sans"
+"MS Sans Serif"="Liberation Sans"

@@ -1,0 +1,20 @@
+# Documents never belong in the repository: personal forms, government
+# forms (copyrighted), signed copies. The inbox folder is committed, its
+# contents never are.
+/inbox/*
+!/inbox/README.md
+*.pdf
+*.ps
+
+# Local agent and editor files
+CLAUDE.local.md
+.claude/settings.local.json
+.claude/agents/local/
+.claude/worktrees/
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db

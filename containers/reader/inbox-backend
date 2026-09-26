@@ -1,0 +1,34 @@
+#!/bin/sh
+# CUPS backend for the "Save to inbox" printer: turn each print job into a
+# PDF in /work. Arguments: job-id user title copies options [file].
+if [ $# -eq 0 ]; then
+  echo 'direct inbox "Unknown" "Save to inbox"'
+  exit 0
+fi
+set -u
+title=$(printf '%s' "$3" | tr -c 'A-Za-z0-9._-' '_' | sed 's/^_*//; s/_*$//' | cut -c1-60)
+# Never overwrite: the name carries the time, plus a counter if needed.
+base="/work/${title:-printed}-$(date +%Y%m%d-%H%M%S)"
+out="$base.pdf"
+n=2
+while [ -e "$out" ]; do out="$base-$n.pdf"; n=$((n + 1)); done
+in="${6:-}"
+if [ -z "$in" ]; then
+  in="$(mktemp)"
+  cat > "$in"
+fi
+# Vector PDF (keeps text sharp); if the job refuses to be converted, render
+# it to page images instead, as a printer would. Overprint is a print-shop
+# setting Reader turns on for black artwork; kept in a PDF, it makes viewers
+# paint such logos as solid black boxes.
+if gs -q -dSAFER -dBATCH -dNOPAUSE -sDEVICE=pdfwrite -dPreserveOverprintSettings=false \
+     -o "$out.part" "$in" 2>/dev/null; then
+  :
+else
+  echo "INFO: vector conversion failed, rendering pages as images" >&2
+  gs -q -dSAFER -dBATCH -dNOPAUSE -sDEVICE=pdfimage24 -r200 -o "$out.part" "$in" || exit 1
+fi
+mv "$out.part" "$out"
+[ -n "${6:-}" ] || rm -f "$in"
+echo "INFO: saved $out" >&2
+exit 0

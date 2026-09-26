@@ -1,0 +1,103 @@
+#!/bin/sh
+# Entrypoint: private print server, private X server, then Adobe Reader.
+# Usage: start-reader [/work/relative/path.pdf]
+set -eu
+
+runtime="${XDG_RUNTIME_DIR:?XDG_RUNTIME_DIR must be set}"
+geometry="${READER_GEOMETRY:-1400x950}"
+state=/state
+display=:9
+
+# 1. Private CUPS server, run as this user, with one printer that saves each
+#    job as a PDF in /work (Letter by default, see inbox.ppd).
+cups=/tmp/cups
+mkdir -p "$cups/state" "$cups/cache" "$cups/spool" "$cups/tmp" "$cups/log"
+cat > "$cups/cupsd.conf" <<CONF
+Listen $cups/cups.sock
+LogLevel warn
+ErrorLog $cups/log/error_log
+AccessLog $cups/log/access_log
+PageLog $cups/log/page_log
+WebInterface No
+Browsing No
+<Location />
+  Order allow,deny
+  Allow all
+</Location>
+<Policy default>
+  <Limit All>
+    Order deny,allow
+  </Limit>
+</Policy>
+CONF
+cat > "$cups/cups-files.conf" <<CONF
+ServerRoot $cups
+StateDir $cups/state
+CacheDir $cups/cache
+RequestRoot $cups/spool
+TempDir $cups/tmp
+ServerBin /usr/lib/cups
+DataDir /usr/share/cups
+User $(id -un)
+Group $(id -gn)
+SystemGroup $(id -gn)
+FileDevice No
+CONF
+cupsd -c "$cups/cupsd.conf" -s "$cups/cups-files.conf"
+export CUPS_SERVER="$cups/cups.sock"
+i=0
+until [ -S "$CUPS_SERVER" ] || [ "$i" -ge 50 ]; do sleep 0.1; i=$((i + 1)); done
+lpadmin -p Save_to_inbox -E -v inbox:/ -P /usr/share/pdf-sign/inbox.ppd \
+  -D "Save as PDF to the inbox" 2>/dev/null
+lpadmin -d Save_to_inbox
+
+# 2. Restore saved Reader settings (the saved signature itself lives in the
+#    AppData folder that pdf-sign mounts from the state directory).
+if [ -f "$state/user.reg" ]; then
+  cp "$state/user.reg" "$WINEPREFIX/user.reg"
+fi
+
+# 3. Private rootful Xwayland: nothing from the host X display, clipboard or
+#    other windows is reachable from here.
+unset DISPLAY XAUTHORITY
+Xwayland "$display" -geometry "$geometry" -decorate -shm -nolisten tcp -noreset \
+  >"$runtime/xwayland.log" 2>&1 &
+xpid=$!
+i=0
+while [ ! -S "/tmp/.X11-unix/X${display#:}" ]; do
+  i=$((i + 1))
+  if [ "$i" -gt 50 ] || ! kill -0 "$xpid" 2>/dev/null; then
+    echo "start-reader: Xwayland did not start:" >&2
+    cat "$runtime/xwayland.log" >&2
+    exit 1
+  fi
+  sleep 0.1
+done
+export DISPLAY="$display"
+# Only Xwayland talks to the host compositor. Wine has a Wayland driver too;
+# without this it could put Reader straight on the host desktop.
+unset WAYLAND_DISPLAY
+matchbox-window-manager -use_titlebar no >/dev/null 2>&1 &
+
+# 4. Reader, maximized. (A Wine virtual desktop would be simpler, but Reader
+#    then places its windows and dialogs off-screen.)
+reader="$WINEPREFIX/drive_c/Program Files (x86)/Adobe/Reader 11.0/Reader/AcroRd32.exe"
+if [ $# -gt 0 ] && [ -n "$1" ]; then
+  # shellcheck disable=SC1003 # tr reads '\\' as one backslash
+  winpath="Z:$(printf '%s' "$1" | tr '/' '\\')"
+  wine start /max /unix "$reader" "$winpath" >>"$runtime/wine.log" 2>&1
+else
+  wine start /max /unix "$reader" >>"$runtime/wine.log" 2>&1
+fi
+
+# Wait while Reader runs and its window is open. Closing the window (which
+# ends Xwayland) or quitting Reader both lead to a clean shutdown below.
+i=0
+until pgrep -x AcroRd32.exe >/dev/null || [ "$i" -ge 120 ]; do sleep 0.5; i=$((i + 1)); done
+while pgrep -x AcroRd32.exe >/dev/null && kill -0 "$xpid" 2>/dev/null; do sleep 1; done
+wineserver -k >/dev/null 2>&1 || true
+wineserver -w
+
+# 5. Keep settings for next time, then shut down.
+cp "$WINEPREFIX/user.reg" "$state/user.reg"
+kill "$xpid" 2>/dev/null || true
