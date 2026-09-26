@@ -1,0 +1,89 @@
+---
+name: New Tag & Release
+
+# A plain push to main (which is what a merged PR produces) tags and
+# releases.
+
+"on":
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# Only one release computation should ever be in flight; a second push
+# landing while the first is still tagging must wait its turn rather than
+# race it for "the" next version, not be cancelled out from under it.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Tag and Release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # github-tag-action walks the commit log back to the previous tag
+          # to decide the next version from Conventional Commit prefixes; a
+          # shallow clone can leave that tag out of the fetched history on a
+          # repo with any real depth to it.
+          fetch-depth: 0
+          # Both steps below reach GitHub through their own explicit token,
+          # not through a git push run from this checkout, so the checked
+          # out credential has no job left to do once the working tree is
+          # on disk. Persisting it anyway would leave a live write scoped
+          # credential sitting in .git/config for the rest of the job to
+          # read, including into anything a later step happened to upload
+          # as an artifact.
+          persist-credentials: false
+
+      # github-tag-action computes the next version from the commits since
+      # the previous tag, and does not check whether HEAD already carries
+      # one. On a push whose HEAD was tagged by hand it would therefore cut
+      # a second, redundant tag at the same commit, which would then take
+      # over as the latest release. Skipping when HEAD is already tagged
+      # lets a deliberate manual tag and this automation coexist.
+      - name: Check whether HEAD is already tagged
+        id: existing_tag
+        run: |
+          if tag=$(git describe --exact-match --tags HEAD 2>/dev/null); then
+            echo "Found existing tag ${tag} on HEAD, skipping automatic tagging."
+            echo "tagged=true" >>"${GITHUB_OUTPUT}"
+          else
+            echo "tagged=false" >>"${GITHUB_OUTPUT}"
+          fi
+
+      - name: Create tag
+        id: tag_version
+        if: steps.existing_tag.outputs.tagged == 'false'
+        uses: mathieudutour/github-tag-action@a22cf08638b34d5badda920f9daf6e72c477b07b # v6.2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          release_branches: main
+
+      # gh release create rather than ncipollo/release-action: gh ships
+      # preinstalled on the runner and is maintained by GitHub itself, so
+      # using it drops a third party action from this workflow's trust
+      # boundary entirely rather than merely suppressing zizmor's
+      # superfluous-actions finding on it. Nothing this job does with
+      # ncipollo (tag, name, body, generated notes) needs a capability gh
+      # lacks; rsync-crypt's own copy of this workflow keeps
+      # ncipollo/release-action instead, because it sets allowUpdates,
+      # which gh has no equivalent for.
+      - name: Create release
+        if: steps.tag_version.outputs.new_tag != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.tag_version.outputs.new_tag }}
+          NOTES: ${{ steps.tag_version.outputs.changelog }}
+        run: |
+          gh release create "$TAG" \
+            --title "Release $TAG" \
+            --notes "$NOTES" \
+            --generate-notes

@@ -1,0 +1,211 @@
+{
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+
+  // Renovate is this repository's only dependency bot: it covers every pin
+  // surface this repository has: the pre-commit-checklists rev: pin in
+  // .pre-commit-config.yaml, every commit-SHA action pin under
+  // .github/workflows/, and the L2 image digest .devcontainer/l2/Dockerfile
+  // pins. asdf was removed from this organization on 2026-09-19, so the
+  // .tool-versions and .devcontainer/asdf-plugins surfaces are gone with it;
+  // tools come from signed apt repositories now and no package version is
+  // pinned at all.
+  // Dependabot is not used here: the template's disabled dependabot.yml was
+  // removed. (Dependabot security alerts are a repository setting and do not
+  // depend on that file.)
+  //
+  // enabledManagers below is an explicit list of exactly those managers, not
+  // left as a generic catch-all the way this template's config was before
+  // this file was first aligned with the org's merge pipeline
+  // (docs/MERGE_PIPELINE.md): this repo has nothing else for Renovate to
+  // manage yet. A repo created from this template that grows real
+  // dependencies beyond these surfaces (npm, pip, a Dockerfile, a Terraform
+  // module registry, ...) needs to widen enabledManagers, or drop it entirely
+  // to fall back to config:recommended's own defaults, once it has something
+  // else for Renovate to watch; see README.md's "Using this template" step 5.
+  extends: ["config:recommended"],
+
+  // Kept on despite the standing, never-resolving tracking issue it opens.
+  // Without it, "Renovate found nothing to update" and "Renovate silently
+  // stopped seeing your dependencies" look identical, and the dashboard is
+  // the only place Renovate reports detection errors and rate-limited
+  // updates.
+  dependencyDashboard: true,
+
+  timezone: "America/Toronto",
+
+  // Daily, not Saturday. A weekly schedule stacks on top of
+  // minimumReleaseAge's 7 day floor below rather than overlapping it: a
+  // release that misses its weekly slot by a day waits a full extra week, so
+  // the oldest a package could sit before merging was up to 14 days even
+  // though 7 was the intended floor. The floor itself never moved:
+  // minimumReleaseAge is seven days either way, and what a weekly window
+  // stretched was the worst case, not the minimum. Checking daily keeps the
+  // schedule's own period short enough that it cannot add more than a day on
+  // top of that floor.
+  //
+  // A pin-only bump resolves `Review Verified` through
+  // the shared review verdict's bot lane without CodeRabbit ever being
+  // asked, so a daily schedule consumes no extra review quota; see
+  // ivan-pinatti-labs/.github's README.md under "Dependency policy".
+  schedule: ["before 7am"],
+
+  labels: ["dependencies"],
+  commitMessagePrefix: "chore:",
+
+  // Keep PR volume manageable so CI is not overwhelmed.
+  prConcurrentLimit: 5,
+  prHourlyLimit: 2,
+
+  // The default deny. Overridden per update type by the first packageRules
+  // entry below, which is the only place that grants it: an update type
+  // this config has not thought about arrives unlabelled and waits for a
+  // person rather than merging on the strength of a default nobody chose.
+  automerge: false,
+
+  // The pin surfaces this repository actually has. github-actions covers
+  // every uses: SHA pin under .github/workflows/; pre-commit covers
+  // .pre-commit-config.yaml's rev:; dockerfile covers the base image digest
+  // the development container pins, scoped to that one file by the
+  // packageRules entry further down. There is no custom.regex manager any
+  // more: the only thing it watched was .devcontainer/asdf-plugins, which
+  // went with asdf.
+  enabledManagers: ["github-actions", "pre-commit", "dockerfile"],
+
+  // Renovate's pre-commit manager ships disabled by its own default even
+  // when named in enabledManagers above (confirmed with
+  // `renovate --platform=local --dry-run=extract`, which listed the manager
+  // as enabled but extracted zero dependencies from
+  // .pre-commit-config.yaml until this block was added). github-actions
+  // needs no equivalent block: it ships enabled by default.
+  "pre-commit": {
+    enabled: true,
+  },
+
+  // A cooling window before an update is offered at all, mirroring
+  // ivan-pinatti-labs/rsync-crypt's reasoning: `Pin Only` proves a diff
+  // changed nothing but a version token, and ivan-pinatti-labs/gh-actions documents
+  // exactly what that covers,
+  // but it cannot tell a good release from a backdoored one, because a
+  // fresh supply chain attack has no advisory yet for any scanner to match.
+  // Age is the only defence against that, and granting automerge above
+  // without it would mean merging a release published minutes earlier,
+  // unattended, with no person ever looking.
+  //
+  // Seven days, the same as the sibling repositories, because the reasoning
+  // is about how long a compromised release typically takes to be spotted
+  // and pulled, not about this repository's (much smaller) dependency
+  // surface.
+  minimumReleaseAge: "7 days",
+
+  // Hold the pull request until the window is satisfied rather than opening
+  // one that is not allowed to merge yet. Without this, minimumReleaseAge
+  // still gates the merge, but Renovate opens the pull request immediately
+  // regardless, so it would sit for up to seven days looking blocked for no
+  // visible reason instead of not existing yet.
+  internalChecksFilter: "strict",
+
+  // The exception: a fix for a known vulnerability is not made safer by
+  // aging, and null clears the inherited window for these updates only.
+  vulnerabilityAlerts: {
+    minimumReleaseAge: null,
+  },
+
+  packageRules: [
+    // What may merge without anyone looking, and the label that says so.
+    //
+    // First in the list on purpose: later rules win on any key they share
+    // with an earlier one, and the group rule below sets a name and labels,
+    // not automerge policy, so it cannot accidentally override this by
+    // coming after it.
+    //
+    // The label is the whole point. bot-auto-merge.yml approves a Renovate
+    // pull request only when it carries `automerge`, reading the label
+    // rather than restating which update types are eligible, so the policy
+    // lives here, once. `Pin Only` is the actual security gate behind that
+    // trust: every changed line still has to be nothing but a version in a
+    // pin position, checked line by line, before the label alone can do
+    // anything; see docs/MERGE_PIPELINE.md.
+    //
+    // patch and minor only, across every enabled manager: a pinned action
+    // or a pre-commit hook rev could each in principle offer a major, which
+    // is exactly the case that needs a person to check nothing else in this
+    // repository's tooling assumes the old major's behavior.
+    {
+      matchUpdateTypes: ["patch", "minor"],
+      automerge: true,
+      addLabels: ["automerge"],
+    },
+    // The shared L2 image this repository's own L2 image builds on, pinned by
+    // digest in .devcontainer/l2/Dockerfile. matchFileNames is what keeps the dockerfile
+    // manager to that one file: any other Dockerfile this repository grows
+    // later stays unwatched until someone widens this deliberately.
+    //
+    // Merged unattended. A digest update matches none of the automerge
+    // grants above, which cover patch and minor only, so this rule grants
+    // it itself. This is the organization's own image, built by ivan-pinatti-labs/devcontainer-airlock,
+    // and the quality gate lives there rather than in each consumer: that
+    // repository ages its own upstream inputs through a seven day
+    // minimumReleaseAge, sends Ubuntu minor and major moves to a person, and
+    // only publishes from a reviewed merge to main. A digest
+    // arriving here has therefore already passed that gate, and `Pin Only`
+    // grades the `ARG L2_IMAGE=<image>@sha256:<digest>` line (IMAGE_DIGEST in
+    // the shared pin-only check's image_digest grammar), so the ordinary bot
+    // lane approves it.
+    // GHCR returns no release timestamp for a digest, so under Renovate's
+    // default minimumReleaseAgeBehaviour (timestamp-required) the seven day
+    // window above would hold every base image bump forever and, with
+    // internalChecksFilter strict, never open the pull request at all.
+    // Measured with a dry-run=full: "digest update of
+    // ghcr.io/ivan-pinatti-labs/devcontainer-base has no releaseTimestamp to
+    // age against". timestamp-optional lets the update be offered; the seven
+    // day window is applied upstream instead, in devcontainer-airlock, where the
+    // image's own inputs are aged before anything is published.
+    {
+      matchManagers: ["dockerfile"],
+      matchFileNames: [".devcontainer/l2/Dockerfile"],
+      groupName: "L2 image",
+      groupSlug: "airlock-l2",
+      labels: ["dependencies", "tooling"],
+      minimumReleaseAgeBehaviour: "timestamp-optional",
+      automerge: true,
+      addLabels: ["automerge"],
+    },
+
+    // One grouped pull request per ecosystem, each with a matching label
+    // added on top of the plain "dependencies" label above.
+    {
+      matchManagers: ["github-actions"],
+      groupName: "github actions",
+      groupSlug: "github-actions",
+      labels: ["dependencies", "github-actions"],
+    },
+    {
+      matchManagers: ["pre-commit"],
+      groupName: "pre-commit hooks",
+      groupSlug: "pre-commit-hooks",
+      labels: ["dependencies", "pre-commit"],
+    },
+
+    // The github-actions manager extracts more than uses: pins by default:
+    // pull-request.yml's python-version: "3.12" passed to
+    // actions/setup-python's with: (depType uses-with) is a shape
+    // rsync-crypt's own PR #82 proved live there, proposing 3.13 to 3.14
+    // with no way to ever merge it. Dependabot's github-actions ecosystem
+    // never watched this shape either, it bumped uses: pins only, and
+    // the shared pin-only check's rev_pin and action_sha grammars do
+    // not match a with: input, so Pin Only would refuse a diff like this
+    // and route it to a person every single time upstream Python cuts a
+    // release, forever, since the shape never changes. Disabled here so
+    // this template, and every repository created from it, stops
+    // generating a pull request that can never pass its own required
+    // check. matchDepTypes also covers github-runner (a literal runs-on:
+    // value) for the same reason, even though nothing here happens to use
+    // one today; pre-commit-checklists, pre-commit-checklists-demo and
+    // rsync-crypt all carry the identical rule for the identical reason.
+    {
+      matchManagers: ["github-actions"],
+      matchDepTypes: ["github-runner", "uses-with"],
+      enabled: false,
+    },
+  ],
+}

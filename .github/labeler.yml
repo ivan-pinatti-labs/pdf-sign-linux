@@ -1,0 +1,26 @@
+# Config for actions/labeler (see .github/workflows/pull-request.yml). A
+# label not already present on the repo is created automatically (default
+# grey) the first time it's applied, so nothing here needs pre-registering.
+#
+# Only the two categories every repo has are defined below. Add more once
+# this project has directories worth labeling on their own, for example a
+# "scripts" or "docs" split like ivan-pinatti-labs/pre-commit-checklists uses.
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "docs/**"
+          - "*.md"
+
+container:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "containers/**"
+          - "pdf-sign"
+
+selinux:
+  - changed-files:
+      - any-glob-to-any-file: "selinux/**"
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file: ".github/**"

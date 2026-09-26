@@ -12,7 +12,7 @@ display=:9
 #    job as a PDF in /work (Letter by default, see inbox.ppd).
 cups=/tmp/cups
 mkdir -p "$cups/state" "$cups/cache" "$cups/spool" "$cups/tmp" "$cups/log"
-cat > "$cups/cupsd.conf" <<CONF
+cat >"$cups/cupsd.conf" <<CONF
 Listen $cups/cups.sock
 LogLevel warn
 ErrorLog $cups/log/error_log
@@ -30,7 +30,7 @@ Browsing No
   </Limit>
 </Policy>
 CONF
-cat > "$cups/cups-files.conf" <<CONF
+cat >"$cups/cups-files.conf" <<CONF
 ServerRoot $cups
 StateDir $cups/state
 CacheDir $cups/cache
@@ -46,7 +46,10 @@ CONF
 cupsd -c "$cups/cupsd.conf" -s "$cups/cups-files.conf"
 export CUPS_SERVER="$cups/cups.sock"
 i=0
-until [ -S "$CUPS_SERVER" ] || [ "$i" -ge 50 ]; do sleep 0.1; i=$((i + 1)); done
+until [ -S "$CUPS_SERVER" ] || [ "$i" -ge 50 ]; do
+  sleep 0.1
+  i=$((i + 1))
+done
 lpadmin -p Save_to_inbox -E -v inbox:/ -P /usr/share/pdf-sign/inbox.ppd \
   -D "Save as PDF to the inbox" 2>/dev/null
 lpadmin -d Save_to_inbox
@@ -93,7 +96,10 @@ fi
 # Wait while Reader runs and its window is open. Closing the window (which
 # ends Xwayland) or quitting Reader both lead to a clean shutdown below.
 i=0
-until pgrep -x AcroRd32.exe >/dev/null || [ "$i" -ge 120 ]; do sleep 0.5; i=$((i + 1)); done
+until pgrep -x AcroRd32.exe >/dev/null || [ "$i" -ge 120 ]; do
+  sleep 0.5
+  i=$((i + 1))
+done
 while pgrep -x AcroRd32.exe >/dev/null && kill -0 "$xpid" 2>/dev/null; do sleep 1; done
 wineserver -k >/dev/null 2>&1 || true
 wineserver -w

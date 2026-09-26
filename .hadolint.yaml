@@ -1,0 +1,9 @@
+---
+# hadolint configuration, read by the checklist-dev-docker hook.
+ignored:
+  # Pin versions in apt-get install. Deliberately not done: Debian ships
+  # security fixes by moving a package's version within a release, so a
+  # pinned version would freeze the image on vulnerable packages (and fail to
+  # build once Debian drops the old version). The base image is pinned by
+  # tag, and `make rebuild` picks up current fixes.
+  - DL3008

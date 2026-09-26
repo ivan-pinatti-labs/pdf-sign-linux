@@ -5,12 +5,13 @@
 # the inbox mounted (see ../../pdf-sign).
 
 FROM docker.io/library/debian:13-slim AS download
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ARG READER_URL=https://ardownload2.adobe.com/pub/adobe/reader/win/11.x/11.0.00/en_US/AdbeRdr11000_en_US.exe
 ARG READER_SHA256=ca4f238d5765c6ba76f05e2af9ab496d9eabee1f5d8935c32d643ac125e02ef3
 RUN apt-get update \
- && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates curl \
- && curl -fsSLo /AdbeRdr.exe "$READER_URL" \
- && echo "$READER_SHA256  /AdbeRdr.exe" | sha256sum -c -
+  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates curl \
+  && curl -fsSLo /AdbeRdr.exe "$READER_URL" \
+  && echo "$READER_SHA256  /AdbeRdr.exe" | sha256sum -c -
 
 # Everything Reader needs at run time.
 # wine: runs Reader. xwayland + matchbox: a private X server shown as one
@@ -19,40 +20,44 @@ RUN apt-get update \
 # only printer saves PDFs to the inbox. ghostscript: PostScript to PDF.
 # qpdf: unlocks forms with a broken usage-rights seal.
 FROM docker.io/library/debian:13-slim AS runtime
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 # ttf-mscorefonts-installer (Debian contrib) downloads Microsoft's core fonts
 # (Arial, Times New Roman, Courier New...) and checks their checksums. Reader
 # uses Arial in place of Helvetica in documents that do not embed it, as on
 # Windows; without it, printing substitutes a fallback font. EULA acceptance
 # is recorded here because pdf-sign build asked for it.
 RUN dpkg --add-architecture i386 \
- && sed -i 's/^Components: main$/Components: main contrib/' /etc/apt/sources.list.d/debian.sources \
- && echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" \
+  && sed -i 's/^Components: main$/Components: main contrib/' /etc/apt/sources.list.d/debian.sources \
+  && echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" \
     | debconf-set-selections \
- && apt-get update \
- && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+  && apt-get update \
+  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
       wine wine32:i386 wine64 \
       ca-certificates ttf-mscorefonts-installer \
       fonts-wine fonts-liberation fonts-dejavu \
       xwayland libdecor-0-plugin-1-cairo matchbox-window-manager libegl1 \
       cups-daemon cups-client libcups2t64 libcups2t64:i386 \
       ghostscript qpdf procps \
- && test -f /usr/share/fonts/truetype/msttcorefonts/arial.ttf \
- && rm -rf /var/lib/apt/lists/* /usr/share/doc/* /usr/share/man/* \
- && install -d -m 1777 /tmp/.X11-unix
+  && test -f /usr/share/fonts/truetype/msttcorefonts/arial.ttf \
+  && rm -rf /var/lib/apt/lists/* /usr/share/doc/* /usr/share/man/* \
+  && install -d -m 1777 /tmp/.X11-unix
 
 # The Wine prefix must be owned by the user who runs it, so the image is
 # built for the host user's uid (pdf-sign build passes it).
 ARG UID=1000
+# DL3064 flags the name USERNAME; this is the login name the image is built
+# for, not a secret.
+# hadolint ignore=DL3064
 ARG USERNAME=reader
-RUN useradd -m -u "$UID" -s /bin/sh "$USERNAME" \
- && install -d -o "$UID" -g "$UID" /opt/wine
+RUN useradd -l -m -u "$UID" -s /bin/sh "$USERNAME" \
+  && install -d -o "$UID" -g "$UID" /opt/wine
 ENV WINEPREFIX=/opt/wine/prefix WINEDEBUG=-all WINEDLLOVERRIDES="mscoree,mshtml="
 
 # Install Reader into a Wine prefix. Only the prefix leaves this stage.
 FROM runtime AS install
 RUN apt-get update \
- && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends xvfb xauth \
- && rm -rf /var/lib/apt/lists/*
+  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends xvfb xauth \
+  && rm -rf /var/lib/apt/lists/*
 COPY reader.reg /opt/reader.reg
 COPY --from=download --chown=$UID:$UID /AdbeRdr.exe /tmp/AdbeRdr.exe
 USER $USERNAME
@@ -63,13 +68,13 @@ USER $USERNAME
 # originals under /usr/lib, and drop Reader's installer cache.
 RUN xvfb-run -a sh -c '\
       wineboot -i \
-   && wine /tmp/AdbeRdr.exe /sAll /rs /msi EULA_ACCEPT=YES \
-   && wineserver -w \
-   && wine regedit /opt/reader.reg \
-   && wine C:\\windows\\syswow64\\regedit.exe /opt/reader.reg \
-   && wineserver -w' \
- && test -f "$WINEPREFIX/drive_c/Program Files (x86)/Adobe/Reader 11.0/Reader/AcroRd32.exe" \
- && for pair in system32:/usr/lib/x86_64-linux-gnu/wine/x86_64-windows \
+    && wine /tmp/AdbeRdr.exe /sAll /rs /msi EULA_ACCEPT=YES \
+    && wineserver -w \
+    && wine regedit /opt/reader.reg \
+    && wine C:\\windows\\syswow64\\regedit.exe /opt/reader.reg \
+    && wineserver -w' \
+  && test -f "$WINEPREFIX/drive_c/Program Files (x86)/Adobe/Reader 11.0/Reader/AcroRd32.exe" \
+  && for pair in system32:/usr/lib/x86_64-linux-gnu/wine/x86_64-windows \
                 syswow64:/usr/lib/i386-linux-gnu/wine/i386-windows; do \
       dir="$WINEPREFIX/drive_c/windows/${pair%%:*}"; src="${pair#*:}"; \
       for f in "$dir"/*; do \
@@ -79,7 +84,7 @@ RUN xvfb-run -a sh -c '\
         fi; \
       done; \
     done \
- && rm -rf "$WINEPREFIX/drive_c/windows/Installer"/*.msi "$WINEPREFIX/drive_c/users/$USERNAME/AppData/Local/Temp"/*
+  && rm -rf "$WINEPREFIX/drive_c/windows/Installer"/*.msi "$WINEPREFIX/drive_c/users/$USERNAME/AppData/Local/Temp"/*
 
 FROM runtime
 COPY --from=install /opt/wine /opt/wine

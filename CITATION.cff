@@ -1,0 +1,28 @@
+---
+cff-version: 1.2.0
+message: >
+  If you use this software, consider citing it using the metadata below.
+title: pdf-sign-linux
+abstract: >
+  Fill in and sign PDF documents on Linux, including dynamic XFA forms that
+  only Adobe Reader can render, by running Adobe Reader XI under Wine in an
+  offline, rootless podman container that stays SELinux confined.
+authors:
+  - given-names: Ivan
+    family-names: Pinatti
+    alias: ivan-pinatti
+    website: https://github.com/ivan-pinatti
+license: Apache-2.0
+repository-code: https://github.com/ivan-pinatti-labs/pdf-sign-linux
+url: https://github.com/ivan-pinatti-labs/pdf-sign-linux
+keywords:
+  - pdf
+  - xfa
+  - digital-signature
+  - adobe-reader
+  - wine
+  - podman
+  - selinux
+  - wayland
+version: 0.1.0
+date-released: "2026-09-26"

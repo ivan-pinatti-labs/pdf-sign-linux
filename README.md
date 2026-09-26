@@ -1,5 +1,12 @@
 # pdf-sign-linux
 
+[![License](https://img.shields.io/github/license/ivan-pinatti-labs/pdf-sign-linux?logo=Github&style=for-the-badge)](LICENSE.md)
+[![GitHub issues](https://img.shields.io/github/issues-raw/ivan-pinatti-labs/pdf-sign-linux?logo=Github&style=for-the-badge)](https://github.com/ivan-pinatti-labs/pdf-sign-linux/issues)
+[![GitHub Sponsors](https://img.shields.io/github/sponsors/ivan-pinatti?logo=Github&style=for-the-badge)](https://github.com/sponsors/ivan-pinatti)
+[![GitHub Repo stars](https://img.shields.io/github/stars/ivan-pinatti-labs/pdf-sign-linux?logo=Github&style=for-the-badge)](https://github.com/ivan-pinatti-labs/pdf-sign-linux)
+[![GitHub forks](https://img.shields.io/github/forks/ivan-pinatti-labs/pdf-sign-linux?logo=Github&style=for-the-badge)](https://github.com/ivan-pinatti-labs/pdf-sign-linux/forks)
+[![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/ivan-pinatti-labs/pdf-sign-linux?utm_source=oss&utm_medium=github&utm_campaign=ivan-pinatti-labs%2Fpdf-sign-linux&labelColor=171717&color=FF570A&label=CodeRabbit+Reviews&style=for-the-badge)](https://coderabbit.ai)
+
 Fill in and sign PDF documents on Linux with Adobe Reader XI (the Windows
 version, under Wine) inside an offline, rootless podman container.
 
@@ -162,4 +169,15 @@ is also built for your own user id.
 Adobe, Acrobat and Reader are trademarks of Adobe. This project is not
 affiliated with or endorsed by Adobe or Microsoft.
 
-The code is licensed under the Apache License 2.0 (see `LICENSE`).
+## License
+
+The code is licensed under the Apache License 2.0. See
+[LICENSE.md](LICENSE.md) for full details, and [NOTICE.md](NOTICE.md) for the
+third-party software the build installs.
+
+## Contribute / Donate
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) to contribute. If you use this project,
+entirely or partially, or get inspired by it, consider buying me a coffee or a
+beer, I would really appreciate it:
+[buymeacoffee.com/ivan.pinatti](https://www.buymeacoffee.com/ivan.pinatti).

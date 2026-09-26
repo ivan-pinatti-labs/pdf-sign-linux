@@ -1,0 +1,18 @@
+---
+# Checked by checklist-yaml (yamllint) via .pre-commit-config.yaml. Uses
+# yamllint's own "default" rule set, with line length relaxed to fit this
+# template's SHA-pinned uses: lines in .github/workflows (a full commit SHA
+# plus a trailing version comment), which exceed yamllint's default of 80
+# columns on their own.
+extends: default
+
+rules:
+  line-length:
+    max: 100
+  # checklist-yaml also runs Prettier over every YAML file, and Prettier
+  # normalizes a trailing same-line comment to exactly one space before
+  # the #, not the default rule's two. Left at the default, the two hooks
+  # would fight every run: yamllint asks for two spaces, Prettier rewrites
+  # it back to one, and the file would never settle.
+  comments:
+    min-spaces-from-content: 1
