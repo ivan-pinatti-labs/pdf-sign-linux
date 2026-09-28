@@ -12,8 +12,12 @@
 # The container gets no network, no capabilities, and only three folders: the
 # inbox (documents in and out) and two for saved state (Reader settings and your
 # saved signature).
+#
+# Everything it writes (state, inbox copies, printouts, saved documents) is
+# private to your user: folders 0700, files 0600.
 
 set -euo pipefail
+umask 077
 
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 INBOX="${PDF_SIGN_INBOX:-$SCRIPT_DIR/inbox}"
@@ -29,13 +33,19 @@ info() { echo "pdf-sign: $*" >&2; }
 
 usage() { sed -n '2,14s/^# \{0,1\}//p' "$0"; }
 
-# Arguments shared by every container: offline, unprivileged, files owned by
-# the calling user, inbox mounted at /work.
-common_args() {
+# The inbox holds signed documents: yours alone, whatever mode it had.
+secure_inbox() {
   mkdir -p "$INBOX"
+  chmod 700 "$INBOX"
+}
+
+# Arguments shared by every container: offline, unprivileged, files owned by
+# and private to the calling user, inbox mounted at /work.
+common_args() {
+  secure_inbox
   printf '%s\n' \
     --rm --network=none \
-    --userns=keep-id --user "$(id -u):$(id -g)" \
+    --userns=keep-id --user "$(id -u):$(id -g)" --umask=0077 \
     --cap-drop=ALL --security-opt=no-new-privileges \
     -v "$INBOX:/work:rw,z" -w /work
 }
@@ -85,7 +95,7 @@ stage_file() {
   local src="$1" abs inbox_abs dest
   [[ -f "$src" ]] || die "no such file: $src"
   abs="$(readlink -f "$src")"
-  mkdir -p "$INBOX"
+  secure_inbox
   inbox_abs="$(readlink -f "$INBOX")"
   if [[ "$abs" == "$inbox_abs"/* ]]; then
     printf '%s\n' "${abs#"$inbox_abs"/}"
@@ -160,6 +170,10 @@ cmd_open() {
   [[ ${#selinux[@]} -gt 0 || "$(cat /sys/fs/selinux/enforce 2>/dev/null)" != 1 ]] || exit 1
   local appdata
   appdata="$PREFIX/drive_c/users/$(id -un)/AppData/Roaming/Adobe"
+  # The saved signature lives here: only you (and root) may read it. Also
+  # tightens state written by versions that did not set a umask.
+  mkdir -p "$STATE"
+  chmod -R u+rwX,go= "$STATE"
   mkdir -p "$STATE/profile" "$STATE/adobe-appdata"
   local -a args
   mapfile -t args < <(

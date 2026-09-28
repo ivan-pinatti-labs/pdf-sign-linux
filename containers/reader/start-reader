@@ -2,6 +2,8 @@
 # Entrypoint: private print server, private X server, then Adobe Reader.
 # Usage: start-reader [/work/relative/path.pdf]
 set -eu
+# Settings and the saved signature are private to the user.
+umask 077
 
 runtime="${XDG_RUNTIME_DIR:?XDG_RUNTIME_DIR must be set}"
 geometry="${READER_GEOMETRY:-1400x950}"

@@ -110,13 +110,26 @@ The inbox holds signed documents and printed forms; clear it out when done.
 Only its `README.md` is committed; git ignores everything else in it.
 `PDF_SIGN_STATE` moves the state folder.
 
+All of these are private to your user. `pdf-sign` keeps the inbox and the
+state folder at `0700` (every run also tightens state written by older
+versions), and everything written inside them, by `pdf-sign` or by the
+container, is created `0600`. Other accounts on the machine cannot read
+your signature or your documents; root still can.
+
+The state folder stays outside the project on purpose: a coding agent
+workbench that mounts this repository (such as
+[devcontainer-airlock](https://github.com/ivan-pinatti-labs/devcontainer-airlock))
+runs as your user, so file permissions would not keep your signature from
+it. Do not point `PDF_SIGN_STATE` into the repository.
+
 ## Isolation
 
 Each run is a fresh container (`--rm`) with:
 
 - **No network** (`--network=none`, loopback only).
 - **No capabilities** (`--cap-drop=ALL`, `no-new-privileges`), running as
-  your own user (`--userns=keep-id`) so files it writes belong to you.
+  your own user (`--userns=keep-id`) so files it writes belong to you, and
+  with a private umask (`--umask=0077`) so nobody else can read them.
 - **Only three folders**: the inbox and the two state folders above.
 - **No access to your screen or clipboard.** The container gets only the
   Wayland socket: no X11 display, D-Bus, PipeWire or screenshot portal.

@@ -6,6 +6,8 @@ if [ $# -eq 0 ]; then
   exit 0
 fi
 set -u
+# Printouts hold filled in forms: private to the user, whatever cupsd set.
+umask 077
 title=$(printf '%s' "$3" | tr -c 'A-Za-z0-9._-' '_' | sed 's/^_*//; s/_*$//' | cut -c1-60)
 # Never overwrite: the name carries the time, plus a counter if needed.
 base="/work/${title:-printed}-$(date +%Y%m%d-%H%M%S)"
