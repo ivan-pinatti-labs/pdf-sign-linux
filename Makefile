@@ -56,4 +56,4 @@ open: ## Open a PDF in Adobe Reader: fill, print, sign, save (FILE=doc.pdf)
 	$(PDF_SIGN) open $(file_arg)
 
 inbox: ## List the inbox
-	@mkdir -p "$(INBOX)" && ls -lh "$(INBOX)"
+	@mkdir -p "$(INBOX)" && chmod 700 "$(INBOX)" && ls -lh "$(INBOX)"
