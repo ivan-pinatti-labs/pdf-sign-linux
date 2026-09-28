@@ -33,11 +33,16 @@ info() { echo "pdf-sign: $*" >&2; }
 
 usage() { sed -n '2,14s/^# \{0,1\}//p' "$0"; }
 
+# The inbox holds signed documents: yours alone, whatever mode it had.
+secure_inbox() {
+  mkdir -p "$INBOX"
+  chmod 700 "$INBOX"
+}
+
 # Arguments shared by every container: offline, unprivileged, files owned by
 # and private to the calling user, inbox mounted at /work.
 common_args() {
-  mkdir -p "$INBOX"
-  chmod go= "$INBOX"
+  secure_inbox
   printf '%s\n' \
     --rm --network=none \
     --userns=keep-id --user "$(id -u):$(id -g)" --umask=0077 \
@@ -90,7 +95,7 @@ stage_file() {
   local src="$1" abs inbox_abs dest
   [[ -f "$src" ]] || die "no such file: $src"
   abs="$(readlink -f "$src")"
-  mkdir -p "$INBOX"
+  secure_inbox
   inbox_abs="$(readlink -f "$INBOX")"
   if [[ "$abs" == "$inbox_abs"/* ]]; then
     printf '%s\n' "${abs#"$inbox_abs"/}"
@@ -165,10 +170,11 @@ cmd_open() {
   [[ ${#selinux[@]} -gt 0 || "$(cat /sys/fs/selinux/enforce 2>/dev/null)" != 1 ]] || exit 1
   local appdata
   appdata="$PREFIX/drive_c/users/$(id -un)/AppData/Roaming/Adobe"
-  mkdir -p "$STATE/profile" "$STATE/adobe-appdata"
   # The saved signature lives here: only you (and root) may read it. Also
   # tightens state written by versions that did not set a umask.
-  chmod -R go= "$STATE"
+  mkdir -p "$STATE"
+  chmod -R u+rwX,go= "$STATE"
+  mkdir -p "$STATE/profile" "$STATE/adobe-appdata"
   local -a args
   mapfile -t args < <(
     common_args
