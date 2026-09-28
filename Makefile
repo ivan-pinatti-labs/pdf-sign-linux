@@ -39,7 +39,7 @@ help: ## Show this help
 	@echo
 	@grep -hE '^[a-z]+:.*## ' $(firstword $(MAKEFILE_LIST)) | awk -F':.*## ' '{printf "  %-8s %s\n", $$1, $$2}'
 	@echo
-	@echo "Inbox: $(INBOX)  (override with INBOX=...)"
+	@echo "Inbox: $(PDF_SIGN_INBOX)  (override with INBOX=...)"
 	@echo
 	@$(MAKE) --no-print-directory workbench-help
 
@@ -56,4 +56,4 @@ open: ## Open a PDF in Adobe Reader: fill, print, sign, save (FILE=doc.pdf)
 	$(PDF_SIGN) open $(file_arg)
 
 inbox: ## List the inbox
-	@mkdir -p "$(INBOX)" && chmod 700 "$(INBOX)" && ls -lh "$(INBOX)"
+	@mkdir -p "$(PDF_SIGN_INBOX)" && chmod 700 "$(PDF_SIGN_INBOX)" && ls -lh "$(PDF_SIGN_INBOX)"
