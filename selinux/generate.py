@@ -23,7 +23,7 @@ def sub(t):
 def main():
     text = sys.stdin.read()
     sections = dict(
-        re.findall(r"^### (\w+)\n(.*?)(?=^### |\Z)", text, re.DOTALL | re.MULTILINE)
+        re.findall(r"^### (\w+)\n(.*?)(?=(?:^### )|\Z)", text, re.DOTALL | re.MULTILINE)
     )
 
     attrs = []
@@ -36,7 +36,7 @@ def main():
         line = line.strip()
         if not line.startswith(f"allow {SRC} ") or line.endswith("True") or "[" in line:
             continue  # rules for attributes apply already; skip boolean-gated ones
-        m = re.match(r"allow (\S+) (\S+):(\S+) (?:\{ (.*?) \}|(\S+));$", line)
+        m = re.match(r"allow (\S+) ([^\s:]+):(\S+) (?:\{ ([^}]*) \}|([^\s;]+));$", line)
         if not m:
             sys.exit(f"cannot parse: {line}")
         _, tgt, cls, many, one = m.groups()
@@ -48,7 +48,9 @@ def main():
         line = line.strip()
         if not line.startswith(f"type_transition {SRC} "):
             continue
-        m = re.match(r"type_transition (\S+) (\S+):(\S+) (\S+)(?: (\S+))?;$", line)
+        m = re.match(
+            r"type_transition (\S+) ([^\s:]+):(\S+) ([^\s;]+)(?: ([^\s;]+))?;$", line
+        )
         if not m:
             sys.exit(f"cannot parse: {line}")
         _, tgt, cls, result, name = m.groups()
