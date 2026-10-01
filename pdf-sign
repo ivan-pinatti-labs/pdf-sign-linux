@@ -24,6 +24,12 @@ INBOX="${PDF_SIGN_INBOX:-$SCRIPT_DIR/inbox}"
 STATE="${PDF_SIGN_STATE:-${XDG_DATA_HOME:-$HOME/.local/share}/pdf-sign}"
 IMAGE="${PDF_SIGN_IMAGE:-localhost/pdf-sign-reader:latest}"
 PREFIX=/opt/wine/prefix
+# Where the kernel says whether SELinux is enforcing. The tests point it at a
+# file of their own (tests/pdf-sign.test.sh), since no container they run in
+# can fake the real one. It cannot drop confinement: when it reads anything
+# but 1 on an enforcing host, podman still labels the container container_t,
+# which only keeps Reader off the Wayland socket.
+SELINUX_ENFORCE="${PDF_SIGN_SELINUX_ENFORCE:-/sys/fs/selinux/enforce}"
 
 die() {
   echo "pdf-sign: $*" >&2
@@ -77,7 +83,7 @@ wayland_args() {
 # that access. Without the module, refuse rather than drop confinement,
 # unless PDF_SIGN_NO_SELINUX=1.
 selinux_args() {
-  [[ -e /sys/fs/selinux/enforce ]] && [[ "$(cat /sys/fs/selinux/enforce)" == 1 ]] || return 0
+  [[ -e "$SELINUX_ENFORCE" ]] && [[ "$(cat "$SELINUX_ENFORCE")" == 1 ]] || return 0
   if podman run --rm --network=none --security-opt label=type:pdf_sign_t \
     --entrypoint true "$IMAGE" >/dev/null 2>&1; then
     printf '%s\n' --security-opt=label=type:pdf_sign_t
@@ -167,7 +173,7 @@ cmd_open() {
   fi
   local -a selinux
   mapfile -t selinux < <(selinux_args)
-  [[ ${#selinux[@]} -gt 0 || "$(cat /sys/fs/selinux/enforce 2>/dev/null)" != 1 ]] || exit 1
+  [[ ${#selinux[@]} -gt 0 || "$(cat "$SELINUX_ENFORCE" 2>/dev/null)" != 1 ]] || exit 1
   local appdata
   appdata="$PREFIX/drive_c/users/$(id -un)/AppData/Roaming/Adobe"
   # The saved signature lives here: only you (and root) may read it. Also
@@ -176,10 +182,7 @@ cmd_open() {
   chmod -R u+rwX,go= "$STATE"
   mkdir -p "$STATE/profile" "$STATE/adobe-appdata"
   local -a args
-  mapfile -t args < <(
-    common_args
-    wayland_args
-  )
+  mapfile -t args < <(common_args && wayland_args)
   podman run "${args[@]}" "${selinux[@]}" \
     -v "$STATE/profile:/state:rw,Z" \
     -v "$STATE/adobe-appdata:$appdata:rw,Z" \
