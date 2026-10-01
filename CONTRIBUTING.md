@@ -88,6 +88,25 @@ That is the command in the lock's own header, which Renovate replays.
 `--exclude-newer=P7D` leaves out anything released in the last seven days,
 dependencies of dependencies included.
 
+### A security fix younger than seven days
+
+The seven day window also holds back a security release, and Renovate
+cannot make an exception: it replays the header's command as written, so its
+pull request for a vulnerability alert fails to regenerate the lock and says
+so. Update that one package by hand, letting it past the window, in the same
+container and from the lock's directory:
+
+```bash
+uv pip compile --generate-hashes --python-version=3.12 --exclude-newer=P7D \
+  --exclude-newer-package "<package>=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  --output-file=requirements.txt requirements.in
+```
+
+Then edit the lock's header back to the standard command above, by hand.
+Left in, the per package date is fixed, so it would hold that package at
+today's releases for good. The lock itself does not change, and the next
+Renovate update replays the standard command once the fix is past the window.
+
 ## License
 
 By contributing, you agree that your contributions will be licensed under
