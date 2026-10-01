@@ -41,6 +41,16 @@ no app code to run tests against and nothing to build a container image
 from. Every place rsync-crypt's document reasons about those two, this one
 simply drops.
 
+### `SonarQube`, not required yet
+
+`.github/workflows/sonarqube.yml` runs SonarQube Cloud's analysis on every
+pull request and on every push to `main`, and its `SonarQube` job fails when
+the quality gate does. It passes on a `merge_group` commit without scanning,
+so it can be required without stalling the queue. It is not a required
+context yet: a later pull request makes it one and removes `codeql.yml`,
+once it has run green here and on `main`. Its settings live in
+`sonar-project.properties`.
+
 ## A human pull request
 
 Open it as a **draft** first. `Pre-commit` runs the full hook set over every
