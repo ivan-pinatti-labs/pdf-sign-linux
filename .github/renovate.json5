@@ -4,8 +4,10 @@
   // Renovate is this repository's only dependency bot: it covers every pin
   // surface this repository has: the pre-commit-checklists rev: pin in
   // .pre-commit-config.yaml, every commit-SHA action pin under
-  // .github/workflows/, and the L2 image digest .devcontainer/l2/Dockerfile
-  // pins. asdf was removed from this organization on 2026-09-19, so the
+  // .github/workflows/, the L2 image digest .devcontainer/l2/Dockerfile
+  // pins, the test requirements in tests/requirements.in with their hash
+  // lock, and the two image digests the Makefile's coverage target pins.
+  // asdf was removed from this organization on 2026-09-19, so the
   // .tool-versions and .devcontainer/asdf-plugins surfaces are gone with it;
   // tools come from signed apt repositories now and no package version is
   // pinned at all.
@@ -66,10 +68,18 @@
   // every uses: SHA pin under .github/workflows/; pre-commit covers
   // .pre-commit-config.yaml's rev:; dockerfile covers the base image digest
   // the development container pins, scoped to that one file by the
-  // packageRules entry further down. There is no custom.regex manager any
-  // more: the only thing it watched was .devcontainer/asdf-plugins, which
-  // went with asdf.
-  enabledManagers: ["github-actions", "pre-commit", "dockerfile"],
+  // packageRules entry further down. pip-compile bumps the exact pins in
+  // tests/requirements.in and regenerates its hash locked
+  // tests/requirements.txt (see "pip-compile" below). custom.regex watches
+  // the two container images the Makefile's coverage target pins by digest
+  // (see customManagers at the end).
+  enabledManagers: [
+    "github-actions",
+    "pre-commit",
+    "dockerfile",
+    "pip-compile",
+    "custom.regex",
+  ],
 
   // Renovate's pre-commit manager ships disabled by its own default even
   // when named in enabledManagers above (confirmed with
@@ -80,6 +90,22 @@
   "pre-commit": {
     enabled: true,
   },
+
+  // tests/requirements.txt is a hash lock compiled from tests/requirements.in
+  // with `uv pip compile --generate-hashes`. pip-compile reads the lock's
+  // header, bumps the pin in the .in file and replays that command, so the
+  // hashes move with the version. `--exclude-newer=P7D` in the header is a
+  // rolling window, so a replay never resolves a release younger than seven
+  // days, transitive ones included, matching minimumReleaseAge below.
+  "pip-compile": {
+    managerFilePatterns: ["/(^|/)requirements\\.txt$/"],
+  },
+
+  // config:recommended ignores every path under tests/, which is where the
+  // lock above lives, and ignorePaths is not mergeable, so this replaces the
+  // inherited list rather than adding to it. The two entries kept are
+  // Renovate's own bare default; neither exists here.
+  ignorePaths: ["**/node_modules/**", "**/bower_components/**"],
 
   // A cooling window before an update is offered at all, mirroring
   // ivan-pinatti-labs/rsync-crypt's reasoning: `Pin Only` proves a diff
@@ -206,6 +232,35 @@
       matchManagers: ["github-actions"],
       matchDepTypes: ["github-runner", "uses-with"],
       enabled: false,
+    },
+    // One pull request per test dependency, labeled python.
+    {
+      matchManagers: ["pip-compile"],
+      addLabels: ["python"],
+    },
+    // The two images `make coverage` runs move by digest only. A tag change
+    // is not a pin bump: python 3.12 is the interpreter CI and SonarQube's
+    // python version setting assume, and kcov publishes nothing but
+    // `latest`.
+    {
+      matchManagers: ["custom.regex"],
+      matchFileNames: ["Makefile"],
+      matchUpdateTypes: ["major", "minor", "patch"],
+      enabled: false,
+    },
+  ],
+
+  customManagers: [
+    {
+      // The container images in the Makefile, each annotated the way
+      // Renovate documents for a regex manager:
+      //   # renovate: datasource=docker depName=<image>
+      //   NAME ?= <image>:<tag>@sha256:<digest>
+      customType: "regex",
+      managerFilePatterns: ["/^Makefile$/"],
+      matchStrings: [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\s+[A-Z_]+ \\?= \\S+?:(?<currentValue>[^@\\s]+)@(?<currentDigest>sha256:[0-9a-f]{64})",
+      ],
     },
   ],
 }
