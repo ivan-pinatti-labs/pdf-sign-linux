@@ -10,7 +10,7 @@ ARG READER_URL=https://ardownload2.adobe.com/pub/adobe/reader/win/11.x/11.0.00/e
 ARG READER_SHA256=ca4f238d5765c6ba76f05e2af9ab496d9eabee1f5d8935c32d643ac125e02ef3
 RUN apt-get update \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates curl \
-  && curl -fsSLo /AdbeRdr.exe "$READER_URL" \
+  && curl --proto '=https' --tlsv1.2 -fsSLo /AdbeRdr.exe "$READER_URL" \
   && echo "$READER_SHA256  /AdbeRdr.exe" | sha256sum -c -
 
 # Everything Reader needs at run time.
