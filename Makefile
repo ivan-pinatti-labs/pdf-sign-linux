@@ -117,6 +117,8 @@ coverage: ## Test the scripts in containers, failing below 100% coverage
 				/out/kcov tests/shell.test.sh; \
 			python3 scripts/kcov_to_sonar.py /tmp/w /out/kcov/shell.test.sh.*/cobertura.xml \
 				/out/shell.xml $(SHELL_SCRIPTS)' || sh=$$?; \
-	mkdir -p "$(COVERAGE_DIR)"; rm -f "$(COVERAGE_DIR)/coverage.xml" "$(COVERAGE_DIR)/shell.xml"; \
-	cp "$$out"/python/coverage.xml "$$out"/shell/shell.xml "$(COVERAGE_DIR)"/ 2>/dev/null || true; \
+	mkdir -p "$(COVERAGE_DIR)" && rm -f "$(COVERAGE_DIR)/coverage.xml" "$(COVERAGE_DIR)/shell.xml" || exit 1; \
+	for report in "$$out/python/coverage.xml" "$$out/shell/shell.xml"; do \
+		if [ -f "$$report" ]; then cp "$$report" "$(COVERAGE_DIR)"/ || exit 1; fi; \
+	done; \
 	test "$$py" -eq 0 && test "$$sh" -eq 0
