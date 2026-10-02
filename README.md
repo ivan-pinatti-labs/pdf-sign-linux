@@ -6,6 +6,8 @@
 [![GitHub Repo stars](https://img.shields.io/github/stars/ivan-pinatti-labs/pdf-sign-linux?logo=Github&style=for-the-badge)](https://github.com/ivan-pinatti-labs/pdf-sign-linux)
 [![GitHub forks](https://img.shields.io/github/forks/ivan-pinatti-labs/pdf-sign-linux?logo=Github&style=for-the-badge)](https://github.com/ivan-pinatti-labs/pdf-sign-linux/forks)
 [![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/ivan-pinatti-labs/pdf-sign-linux?utm_source=oss&utm_medium=github&utm_campaign=ivan-pinatti-labs%2Fpdf-sign-linux&labelColor=171717&color=FF570A&label=CodeRabbit+Reviews&style=for-the-badge)](https://coderabbit.ai)
+[![SonarQube Quality Gate](https://img.shields.io/sonar/quality_gate/ivan-pinatti-labs_pdf-sign-linux?server=https%3A%2F%2Fsonarcloud.io&logo=sonarqubecloud&style=for-the-badge)](https://sonarcloud.io/project/overview?id=ivan-pinatti-labs_pdf-sign-linux)
+[![SonarQube Coverage](https://img.shields.io/sonar/coverage/ivan-pinatti-labs_pdf-sign-linux?server=https%3A%2F%2Fsonarcloud.io&logo=sonarqubecloud&style=for-the-badge)](https://sonarcloud.io/component_measures?id=ivan-pinatti-labs_pdf-sign-linux&metric=coverage)
 
 Fill in and sign PDF documents on Linux with Adobe Reader XI (the Windows
 version, under Wine) inside an offline, rootless podman container.

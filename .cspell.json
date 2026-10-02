@@ -8,7 +8,7 @@
   ],
   "words": [
     "Dsonar",
-    "SARIF",
+    "NOSONAR",
     "acro",
     "argjson",
     "automerged",
@@ -52,6 +52,7 @@
     "ghostscript",
     "gomod",
     "gsub",
+    "hotspot",
     "imageable",
     "journalctl",
     "kcov",
