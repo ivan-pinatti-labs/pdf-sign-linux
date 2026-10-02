@@ -27,10 +27,11 @@
 #   pre-commit run --all-files
 #
 # One id below (checklist-git-commit-msg) runs at the commit-msg git hook
-# stage instead of pre-commit, so default_install_hook_types wires up both
-# stages. Every other hook is pinned to stages: [pre-commit] so it does not
-# also re-run during that commit-msg invocation.
-default_install_hook_types: [pre-commit, commit-msg]
+# stage instead of pre-commit, and the local coverage hook at the end runs at
+# pre-push, so default_install_hook_types wires up all three stages. Every
+# other hook is pinned to stages: [pre-commit] so it does not also re-run
+# during those invocations.
+default_install_hook_types: [pre-commit, commit-msg, pre-push]
 repos:
   - repo: https://github.com/ivan-pinatti-labs/pre-commit-checklists
     # Bump this to whatever https://github.com/ivan-pinatti-labs/pre-commit-checklists/releases
@@ -49,9 +50,10 @@ repos:
       # excludes, since it then reports zero files checked as an error.
       # Excluding it at the pre-commit level keeps it out of every batch.
       # selinux/pdf_sign.cil is excluded the same way: it is generated
-      # policy, a list of SELinux type and permission names.
+      # policy, a list of SELinux type and permission names. So is
+      # tests/requirements.txt, a generated lock that is mostly hashes.
       - id: checklist-spell
-        exclude: ^(\.secrets\.baseline|selinux/pdf_sign\.cil)$
+        exclude: ^(\.secrets\.baseline|selinux/pdf_sign\.cil|tests/requirements\.txt)$
         stages: [pre-commit]
 
       # Lints and link-checks Markdown.
@@ -216,3 +218,28 @@ repos:
         files: ^CITATION\.cff$
         pass_filenames: false
         stages: [pre-commit]
+
+  # This repository's own coverage gate, 100% of the Python (lines and
+  # branches) and of the shell (lines). `make coverage` runs both test suites
+  # in podman containers that see the source only through a tar stream; see
+  # the Makefile. pre-push, not pre-commit: it starts two containers, and
+  # SonarQube's CI job runs the same target on every pull request anyway, so
+  # this only saves a round trip.
+  - repo: local
+    hooks:
+      - id: coverage
+        name: Coverage, 100% of the Python and the shell
+        language: system
+        entry: make coverage
+        pass_filenames: false
+        files: |
+          (?x)^(
+            pdf-sign|
+            containers/reader/[^/]+|
+            selinux/[^/]+|
+            scripts/[^/]+|
+            tests/.+|
+            \.coveragerc|
+            Makefile
+          )$
+        stages: [pre-push]

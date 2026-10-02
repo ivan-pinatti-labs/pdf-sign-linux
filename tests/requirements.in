@@ -1,0 +1,12 @@
+# Test dependencies, exact pins rather than `>=` floors.
+#
+# A floor resolves to whatever is newest on PyPI when the environment is
+# built, which puts the seven day `minimumReleaseAge` in
+# .github/renovate.json5 out of the loop entirely: that window governs when
+# Renovate proposes a change, not what pip installs at build time.
+#
+# tests/requirements.txt is compiled from this file with hashes; regenerate it
+# with the command in its header (see CONTRIBUTING.md), never edit it by
+# hand. coverage measures the suite for `make coverage` and SonarQube Cloud.
+coverage==7.16.1
+pytest==9.1.1

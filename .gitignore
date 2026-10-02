@@ -37,3 +37,6 @@ CLAUDE.local.md
 .claude/settings.local.json
 .claude/agents/local/
 .claude/worktrees/
+
+# Coverage reports, written by `make coverage`
+coverage/

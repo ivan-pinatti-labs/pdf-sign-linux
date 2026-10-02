@@ -5,8 +5,9 @@
 What happens between opening a pull request against this repository and it
 landing on `main`. Ported from `ivan-pinatti-labs/rsync-crypt`'s document of
 the same name, trimmed to what this repository actually has: no app code, no
-build, no test suite, and no Dockerfile, so there is no `Tests` context and
-no `Docker Build` job here, unlike that repository. Where the reasoning is
+build in CI, and no Dockerfile, so there is no `Tests` context and no
+`Docker Build` job here, unlike that repository. The scripts' tests run in
+the `SonarQube` job instead, see below. Where the reasoning is
 identical it is only summarized, not restated; see rsync-crypt's
 `docs/MERGE_PIPELINE.md` for the fuller version this one was trimmed from,
 and `ivan-pinatti-labs/.github`'s `docs/MERGE_PIPELINE.md` for a smaller
@@ -37,8 +38,9 @@ in rsync-crypt: a status a workflow chooses whether to write, and what to
 write, does not read as passed merely because it was skipped.
 
 There is no `Tests` context and no `Docker Build` job: this repository has
-no app code to run tests against and nothing to build a container image
-from. Every place rsync-crypt's document reasons about those two, this one
+no app code of its own beyond its scripts, whose tests run in the
+`SonarQube` job, and nothing CI builds a container image from. Every place
+rsync-crypt's document reasons about those two, this one
 simply drops.
 
 ### `SonarQube`, not required yet
@@ -50,6 +52,22 @@ so it can be required without stalling the queue. It is not a required
 context yet: a later pull request makes it one and removes `codeql.yml`,
 once it has run green here and on `main`. Its settings live in
 `sonar-project.properties`.
+
+Before scanning, the job runs `make coverage`, which holds the Python
+(`selinux/generate.py`, `scripts/kcov_to_sonar.py`) at 100% of lines and
+branches and the four shell scripts (`pdf-sign`, `selinux/generate.sh`,
+`containers/reader/start-reader`, `containers/reader/inbox-backend`) at 100%
+of lines, and hands both reports to SonarQube Cloud. The Python goes through
+coverage.py on Python 3.12, the version CI runs, and the shell through kcov,
+each in a podman container that sees the source only as a tar stream on its
+standard input. The shell tests replace podman, Wine, CUPS and Ghostscript
+with stubs, so they need neither the Reader image nor a desktop. SonarQube
+has no importer for shell coverage, so `scripts/kcov_to_sonar.py` rewrites
+kcov's report into SonarQube's generic coverage format, naming each script
+by its path from the repository root. The job fails below 100% even though
+SonarQube's own gate only asks for 80% of new code, which the Free plan
+cannot raise. These tests run inside the `SonarQube` job, so there is still
+no `Tests` context.
 
 ## A human pull request
 

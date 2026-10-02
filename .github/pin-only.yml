@@ -7,14 +7,30 @@
 #
 # Reproduces the scripts/assert-pin-only-diff.py this replaced, minus the
 # dead .tool-versions grammar that asdf's removal orphaned on 2026-09-19.
-# A repository created from this template inherits these three surfaces and
-# should widen them to whatever it actually pins.
+# A repository created from this template inherits these surfaces and
+# should widen them to whatever it actually pins. This one adds the test
+# requirements and the two images the Makefile's coverage target runs.
 allowed_paths:
   - .pre-commit-config.yaml
   - .github/workflows/
   - .devcontainer/l2/Dockerfile
+  - tests/requirements.in
+  - tests/requirements.txt
+  - Makefile
 
 rules:
+  # The exact pins Renovate bumps, and the hash lock compiled from them.
+  # hash_locked_requirements grades the lock as a whole: same packages, only
+  # versions and hashes moved, and every new hash one PyPI publishes for that
+  # release. A bump that pulls in a new package waits for a person.
+  - path: tests/requirements.in
+    grammars: [requirement_line]
+  - path: tests/requirements.txt
+    grammars: [hash_locked_requirements]
+  # The images `make coverage` runs, pinned by digest; Renovate's packageRules
+  # keep their tags fixed, so only the digest ever moves.
+  - path: Makefile
+    grammars: [digest]
   - path: .devcontainer/l2/Dockerfile
     grammars: [image_digest]
   - path: .github/workflows/

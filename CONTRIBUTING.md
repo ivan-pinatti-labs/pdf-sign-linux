@@ -39,6 +39,22 @@ the Legal section of [README.md](README.md).
    In a workbench, `l2-pre-commit run --all-files` instead: the workbench
    has no `pre-commit` of its own, and this runs the hooks in L2.
 
+   Then the tests, which must keep every script at 100% coverage:
+
+   ```shell
+   make coverage
+   ```
+
+   It runs the Python tests under coverage.py (Python 3.12, lines and
+   branches) and the shell tests under kcov (lines), each in a podman
+   container, and fails unless both reach 100%. It needs podman on `PATH`.
+   The shell tests stub podman, Wine, CUPS and Ghostscript, so they need
+   neither the Reader image nor a desktop. It also runs as a pre-push hook,
+   so run `pre-commit install` again in an existing clone to pick up the
+   pre-push stage. In a workbench, run it as
+   `l2 --engine --net -- make coverage`. A new or changed script ships with
+   tests that reach every line of it.
+
    Changes to the image or launcher also need a manual run, since Reader is
    a GUI program: `make build`, then `make open FILE=...` on a Wayland
    desktop, filling in, printing and signing a document. With SELinux
@@ -53,6 +69,51 @@ the Legal section of [README.md](README.md).
    [.github/PULL_REQUEST_TEMPLATE.md](.github/PULL_REQUEST_TEMPLATE.md). Open
    it as a draft first if the checks take a while to run, and mark it ready
    once they are green.
+
+## Updating the test dependencies
+
+`tests/requirements.in` carries the exact pins, and `tests/requirements.txt`
+is a lock compiled from it with every hash, which
+`pip install --require-hashes` checks. Renovate bumps both. To change one by
+hand, edit the `.in` file and regenerate the lock in a container, from the
+`tests` directory:
+
+```shell
+podman run --rm -v "$PWD:/w:rw,Z" -w /w ghcr.io/astral-sh/uv:python3.12-trixie-slim \
+  uv pip compile --generate-hashes --python-version=3.12 --exclude-newer=P7D \
+  --output-file=requirements.txt requirements.in
+```
+
+That is the command in the lock's own header, which Renovate replays.
+`--exclude-newer=P7D` leaves out anything released in the last seven days,
+dependencies of dependencies included.
+
+### A security fix younger than seven days
+
+The seven day window also holds back a security release, and Renovate
+cannot make an exception: it replays the header's command as written, so its
+pull request for a vulnerability alert fails to regenerate the lock and says
+so. Update that one package by hand, in the same container and from the
+lock's directory, letting it past the window and asking for its newest
+release (`--upgrade-package`; without it, uv keeps the version already in the
+lock, so a vulnerable dependency of a dependency would not move):
+
+```bash
+podman run --rm -v "$PWD:/w:rw,Z" -w /w ghcr.io/astral-sh/uv:python3.12-trixie-slim \
+  uv pip compile --generate-hashes --python-version=3.12 --exclude-newer=P7D \
+  --exclude-newer-package "<package>=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  --upgrade-package "<package>" \
+  --output-file=requirements.txt requirements.in
+```
+
+Then edit the lock's header back to the standard command above, by hand,
+removing `--exclude-newer-package` (uv does not record `--upgrade-package`
+there). Left in, the per package date is fixed, so it would hold that
+package at today's releases for good. Read the lock's diff before
+committing: the other pins are kept as preferences, not guarantees, so uv
+moves another package too when the fix needs it, and each such move gets
+the same review as the fix. The next Renovate update replays the standard
+command once the fix is past the window.
 
 ## License
 

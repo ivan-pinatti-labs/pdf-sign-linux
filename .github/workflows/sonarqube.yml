@@ -2,7 +2,8 @@ name: SonarQube
 
 # SonarQube Cloud static analysis of everything Sonar has an analyzer for:
 # the shell scripts, the Python policy generator, the Containerfile, YAML and
-# these workflows, plus secrets detection over every text file. Settings live
+# these workflows, plus secrets detection over every text file, with the
+# test coverage of the Python and the shell. Settings live
 # in sonar-project.properties. It sits next to the pre-commit hooks, it does
 # not replace them: shellcheck, ruff, hadolint, actionlint and zizmor keep
 # running on every commit through the library's checklists, and Sonar's rules
@@ -78,9 +79,18 @@ jobs:
           # are new code, and a shallow clone makes every line look new.
           fetch-depth: 0
 
-      # No coverage step yet: there is no test suite. A later pull request
-      # adds one (coverage.py for the Python, kcov for the shell) and hands
-      # its report to the scan.
+      # Coverage of the Python and the shell, held at 100% (see the
+      # Makefile's `coverage` target). The quality gate also requires 80% on
+      # new code, and with no report every new line would count as
+      # uncovered. Both tools run in podman containers that see the source
+      # only through a tar stream; the runner ships podman. The step is
+      # allowed to fail so SonarQube still gets the report of a run that
+      # falls short, and the last step below fails the job on it.
+      - name: Measure coverage
+        id: coverage
+        if: github.event_name != 'merge_group'
+        continue-on-error: true
+        run: make coverage
 
       - name: Scan
         if: github.event_name != 'merge_group'
@@ -90,3 +100,12 @@ jobs:
         with:
           args: >-
             -Dsonar.qualitygate.wait=true
+
+      - name: Require 100% coverage
+        # After the scan, so a pull request below 100% still gets SonarQube's
+        # report of which lines are missing. `make coverage` above printed
+        # them too; this only carries its verdict.
+        if: github.event_name != 'merge_group' && steps.coverage.outcome == 'failure'
+        run: |
+          echo "::error::Coverage is below 100%; see the Measure coverage step."
+          exit 1
