@@ -12,11 +12,11 @@ name: Bot Auto Merge
 # requires one approval on `main`: without this workflow a pin-only bot pull
 # request has no approving review and cannot merge.
 #
-# Nothing else happens here: `Pre-commit` is proven by pull-request.yml, and
-# the merge itself is GitHub's, armed either by Renovate (platformAutomerge)
-# or by the last step here on the Dependabot path, because Dependabot cannot
-# arm it; the owner's own path arms nothing at all, see the `approve-owner`
-# job below for why.
+# Nothing else happens here: `Pre-commit` is proven by pull-request.yml,
+# `SonarQube` by sonarqube.yml, and the merge itself is GitHub's, armed
+# either by Renovate (platformAutomerge) or by the last step here on the
+# Dependabot path, because Dependabot cannot arm it; the owner's own path
+# arms nothing at all, see the `approve-owner` job below for why.
 #
 # Why an approval has to be supplied at all: this repository does carry a
 # CODEOWNERS file (.github/CODEOWNERS), unlike rsync-crypt, but branch
@@ -80,11 +80,16 @@ name: Bot Auto Merge
     branches:
       - main
   # For the owner's own path only. `Review Verified` is realistically the
-  # slowest of the three required contexts, since it depends on CodeRabbit's
+  # slowest of the four required contexts, since it depends on CodeRabbit's
   # own review completing, and `pull_request_target` alone never fires again
   # once a pull request stops changing, so without a second trigger a pull
   # request whose review finished after the first poll window closed would
   # need a push it did not otherwise need, just to get approved.
+  #
+  # `CodeRabbit Gate` and `SonarQube` are both named here, not just the
+  # first: `SonarQube` runs the coverage suite before it scans, so it can
+  # finish after `Review Verified` has already settled, and the owner's pull
+  # request would then wait for a push it did not need.
   #
   # `workflow_run`, not `status`: `coderabbit-gate.yml` publishes
   # `Review Verified` using `secrets.GITHUB_TOKEN`, and GitHub does not start
@@ -97,7 +102,7 @@ name: Bot Auto Merge
   # call a token made during it, which is why it exists as the sanctioned
   # way to chain workflows without a personal access token.
   workflow_run:
-    workflows: ["CodeRabbit Gate"]
+    workflows: ["CodeRabbit Gate", "SonarQube"]
     types: [completed]
 
 # The floor. Each job widens it for itself.
@@ -514,27 +519,26 @@ jobs:
 
       - name: Wait for every required context to be green
         # Every required context, not just `Pin Only` the way the bot job
-        # waits: `Pre-commit`, `Pin Only` and `Review Verified` all have to
-        # read green before this job approves anything, because an approval
+        # waits: `Pre-commit`, `SonarQube`, `Pin Only` and `Review Verified`
+        # all have to read green before this job approves anything, because an approval
         # issued before `Review Verified` settles would hand the owner a
         # merge path around the CodeRabbit gate, and the owner is the one
         # author who can never be asked to supply that review themselves.
         #
         # `statusCheckRollup`, not the `/commits/{sha}/status` endpoint the
-        # bot job's wait step reads, because `Pre-commit` is an ordinary
-        # GitHub Check (a workflow job), not a commit status, and that
-        # endpoint only ever returns the latter. `statusCheckRollup` is the
-        # one place both shapes show up together, the same reasoning
-        # shapes show up together.
+        # bot job's wait step reads, because `Pre-commit` and `SonarQube` are
+        # ordinary GitHub Checks (workflow jobs), not commit statuses, and
+        # that endpoint only ever returns the latter. `statusCheckRollup` is
+        # the one place both shapes show up together.
         #
         # A two minute window is still not a guarantee `Review Verified`
         # settles inside it, since it depends on CodeRabbit's own review
         # completing. What makes that survivable rather than a dead end is
-        # the `workflow_run` trigger above: every time coderabbit-gate.yml
-        # finishes a run, this job runs again and re-reads the rollup fresh,
-        # rather than depending on this one poll window catching the change
-        # or on someone pushing a pull request that has nothing left to
-        # change.
+        # the `workflow_run` trigger above: every time coderabbit-gate.yml or
+        # sonarqube.yml finishes a run, this job runs again and re-reads the
+        # rollup fresh, rather than depending on this one poll window
+        # catching the change or on someone pushing a pull request that has
+        # nothing left to change.
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
@@ -542,7 +546,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          required='["Pre-commit","Pin Only","Review Verified"]'
+          required='["Pre-commit","SonarQube","Pin Only","Review Verified"]'
           for _ in $(seq 1 24); do
             # $owner, $name and $number below are GraphQL query variables,
             # not shell expansions; they are meant to stay literal inside
