@@ -108,9 +108,10 @@ podman run --rm -v "$PWD:/w:rw,Z" -w /w ghcr.io/astral-sh/uv:python3.12-trixie-s
 
 Then edit the lock's header back to the standard command above, by hand,
 removing `--exclude-newer-package` (uv does not record `--upgrade-package`
-there). Left in, the per package date is fixed, so it would hold that package at today's releases
-for good. The rest of the lock does not change, and the next Renovate update
-replays the standard command once the fix is past the window.
+there). Left in, the per package date is fixed, so it would hold that
+package at today's releases for good. The rest of the lock does not change,
+and the next Renovate update replays the standard command once the fix is
+past the window.
 
 ## License
 
