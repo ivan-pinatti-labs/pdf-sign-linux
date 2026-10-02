@@ -52,6 +52,7 @@
     "ghostscript",
     "gomod",
     "gsub",
+    "hotspot",
     "imageable",
     "journalctl",
     "kcov",

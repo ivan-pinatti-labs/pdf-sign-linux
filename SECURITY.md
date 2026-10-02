@@ -51,7 +51,12 @@ actionlint and zizmor. CodeQL's old alerts in the Security tab stop
 updating; they are history, not current findings.
 
 The quality gate is the Free plan's built in "Sonar way", which cannot be
-edited. It fails on any new issue in new code, so editing a line that
-carries an old finding makes that finding count against the pull request.
+edited. It fails when new code is rated below A for reliability, security
+or maintainability, when a new security hotspot is left unreviewed, when
+less than 80% of new code is covered, or when more than 3% of it is
+duplicated. A new bug or vulnerability always fails it; a code smell does
+once the new code's technical debt passes the A threshold. Editing a line
+makes it new code, so an old finding on that line counts against the pull
+request.
 Fix what a rule asks for, or mark the single finding false positive or
 accepted in SonarQube Cloud with the reason; no `# NOSONAR` comments.
