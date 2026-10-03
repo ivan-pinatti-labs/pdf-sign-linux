@@ -91,9 +91,14 @@ PYTHON_IMAGE ?= docker.io/library/python:3.12-slim@sha256:f77ac9e44ae96ef2c90b80
 KCOV_IMAGE ?= docker.io/kcov/kcov:latest@sha256:481289ae32e55e5b733019515acd10948a4f76dfed381765577db909664fc603
 SHELL_SCRIPTS := pdf-sign containers/reader/start-reader containers/reader/inbox-backend selinux/generate.sh
 
+# Builds $$out/src.tar: the files git would commit (tracked, plus new ones
+# not ignored), minus any deleted in the working tree, each step checked,
+# so the containers never measure a partial tree.
 _sources := git ls-files -z --cached --others --exclude-standard --deduplicate \
-	| tar --create --owner=0 --group=0 --numeric-owner --null --files-from=- \
-		--ignore-failed-read --file=-
+		>"$$out/all" || exit 1; \
+	xargs -0 sh -c 'for f do if [ -e "$$f" ] || [ -L "$$f" ]; then printf "%s\0" "$$f"; fi; done' sh \
+		<"$$out/all" >"$$out/list" || exit 1; \
+	tar --create --owner=0 --group=0 --numeric-owner --null --files-from="$$out/list" --file="$$out/src.tar" || exit 1
 _unpack := set -e; mkdir /tmp/w; tar -x --no-same-owner -C /tmp/w; cd /tmp/w
 _locked := --cap-drop=ALL --security-opt no-new-privileges
 _comma := ,
@@ -102,15 +107,16 @@ _space := $(_empty) $(_empty)
 
 coverage: ## Test the scripts in containers, failing below 100% coverage
 	@set -u; out="$$(mktemp -d)"; trap 'rm -rf "$$out"' EXIT; \
+	$(_sources); \
 	mkdir "$$out/python" "$$out/shell"; py=0; sh=0; \
-	$(_sources) | $(PODMAN) run --rm --interactive $(_locked) \
+	$(PODMAN) run <"$$out/src.tar" --rm --interactive $(_locked) \
 		-v "$$out/python:/out:rw,Z" "$(PYTHON_IMAGE)" sh -c '$(_unpack); \
 			pip install --quiet --disable-pip-version-check --root-user-action=ignore \
 				--require-hashes --only-binary=:all: -r tests/requirements.txt; \
 			coverage run -m pytest tests -q; \
 			coverage xml -q --fail-under=0 -o /out/coverage.xml; \
 			coverage report' || py=$$?; \
-	$(_sources) | $(PODMAN) run --rm --interactive $(_locked) \
+	$(PODMAN) run <"$$out/src.tar" --rm --interactive $(_locked) \
 		--network=none --read-only --tmpfs /tmp --tmpfs /work --tmpfs /state \
 		-v "$$out/shell:/out:rw,Z" "$(KCOV_IMAGE)" sh -c '$(_unpack); \
 			kcov --include-path=$(subst $(_space),$(_comma),$(addprefix /tmp/w/,$(SHELL_SCRIPTS))) \
@@ -121,4 +127,5 @@ coverage: ## Test the scripts in containers, failing below 100% coverage
 	for report in "$$out/python/coverage.xml" "$$out/shell/shell.xml"; do \
 		if [ -f "$$report" ]; then cp "$$report" "$(COVERAGE_DIR)"/ || exit 1; fi; \
 	done; \
-	test "$$py" -eq 0 && test "$$sh" -eq 0
+	test "$$py" -eq 0 && test "$$sh" -eq 0 && \
+		test -s "$(COVERAGE_DIR)/coverage.xml" && test -s "$(COVERAGE_DIR)/shell.xml"
