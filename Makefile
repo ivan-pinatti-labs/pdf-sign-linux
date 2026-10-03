@@ -127,4 +127,5 @@ coverage: ## Test the scripts in containers, failing below 100% coverage
 	for report in "$$out/python/coverage.xml" "$$out/shell/shell.xml"; do \
 		if [ -f "$$report" ]; then cp "$$report" "$(COVERAGE_DIR)"/ || exit 1; fi; \
 	done; \
-	test "$$py" -eq 0 && test "$$sh" -eq 0
+	test "$$py" -eq 0 && test "$$sh" -eq 0 && \
+		test -s "$(COVERAGE_DIR)/coverage.xml" && test -s "$(COVERAGE_DIR)/shell.xml"
