@@ -134,3 +134,16 @@ def test_sonar_reads_every_extensionless_script_as_shell():
         p for p in discover(REPO_ROOT) if not EXTENSION.search(p) and p not in patterns
     )
     assert not missing, f"add {missing} to sonar.lang.patterns.shell"
+
+
+def test_discovery_refuses_unsafe_script_names():
+    """A script name reaches make's recipes as shell text, so discovery has to
+    refuse any name outside [A-Za-z0-9._/+-] (a committed `x;id;#.sh` would
+    otherwise run `id`)."""
+    here = Path(__file__).resolve().parent
+    while not (here / "Makefile").is_file():
+        here = here.parent
+    text = (here / "Makefile").read_text()
+    assert "_shell_safe = $(if $(filter UNSAFE:," in text
+    assert "$(call _shell_safe," in text
+    assert '? FILENAME : "UNSAFE:")' in text
