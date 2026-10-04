@@ -53,7 +53,10 @@ the Legal section of [README.md](README.md).
    so run `pre-commit install` again in an existing clone to pick up the
    pre-push stage. In a workbench, run it as
    `l2 --engine --net -- make coverage`. A new or changed script ships with
-   tests that reach every line of it.
+   tests that reach every line of it. The shell scripts are found, not
+   listed: any file outside `tests/` ending in `.sh` or `.bash`, or starting
+   with an `sh`, `bash` or `dash` shebang, is measured
+   (`make -s print-shell-scripts` shows the set).
 
    Changes to the image or launcher also need a manual run, since Reader is
    a GUI program: `make build`, then `make open FILE=...` on a Wayland

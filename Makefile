@@ -5,7 +5,7 @@
 # checkmake reads only the first physical line of a .PHONY declaration and
 # silently drops backslash continuations, so every .PHONY here is written on
 # one line (checkmake#280).
-.PHONY: all help build rebuild selinux open inbox coverage workbench-help
+.PHONY: all help build rebuild selinux open inbox coverage print-shell-scripts workbench-help
 
 PDF_SIGN := ./pdf-sign
 INBOX ?= $(CURDIR)/inbox
@@ -89,7 +89,20 @@ PODMAN ?= $(if $(CONTAINER_HOST),podman-remote,podman)
 PYTHON_IMAGE ?= docker.io/library/python:3.14-slim@sha256:c3e521df8b2b498a7a682e7e18676771cb80c6b75b8699af886b2d554ce40151
 # renovate: datasource=docker depName=docker.io/kcov/kcov
 KCOV_IMAGE ?= docker.io/kcov/kcov:latest@sha256:481289ae32e55e5b733019515acd10948a4f76dfed381765577db909664fc603
-SHELL_SCRIPTS := pdf-sign containers/reader/start-reader containers/reader/inbox-backend selinux/generate.sh
+# The shell scripts kcov measures are discovered, not listed, so a new one is
+# held at 100% without anyone remembering to add it. A shell script is a file
+# git would commit that ends in .sh or .bash, or whose first line is a
+# shebang running sh, bash or dash (any interpreter path, env with or without
+# options). Anything under tests/ is left out: those are the tests, not the
+# code under test. A path deleted in the working tree is still tracked, but
+# awk cannot open it and its error is discarded, so it is dropped rather than
+# fatal. SHELL_EXCLUDE takes vendored or third party paths (none today; give
+# each a comment saying why), and SHELL_EXTRA takes shell files neither the
+# extension nor a shebang identifies (none today). tests/test_shell_discovery.py
+# checks the rule and that it stays here.
+SHELL_EXCLUDE :=
+SHELL_EXTRA :=
+SHELL_SCRIPTS := $(sort $(filter-out $(SHELL_EXCLUDE),$(shell git ls-files -z --cached --others --exclude-standard | xargs -0 awk 'FNR == 1 { if (FILENAME ~ /\.(sh|bash)$$/ || $$0 ~ /^#![[:space:]]*([^[:space:]]*\/)?(env[[:space:]]+(-[^[:space:]]+[[:space:]]+)*)?(ba|da)?sh([[:space:]]|$$)/) print FILENAME; nextfile }' 2>/dev/null | grep -v '^tests/')) $(SHELL_EXTRA))
 
 # Builds $$out/src.tar: the files git would commit (tracked, plus new ones
 # not ignored), minus any deleted in the working tree, each step checked,
@@ -129,3 +142,7 @@ coverage: ## Test the scripts in containers, failing below 100% coverage
 	done; \
 	test "$$py" -eq 0 && test "$$sh" -eq 0 && \
 		test -s "$(COVERAGE_DIR)/coverage.xml" && test -s "$(COVERAGE_DIR)/shell.xml"
+
+# The shell scripts `make coverage` measures, one per line.
+print-shell-scripts:
+	@printf '%s\n' $(SHELL_SCRIPTS)
