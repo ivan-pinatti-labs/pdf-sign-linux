@@ -7,6 +7,7 @@ another:
   sets up for the hooks;
 - `sonar.python.version` in sonar-project.properties, which SonarQube Cloud's
   version dependent rules judge the Python against;
+- `target-version` in ruff.toml, the Python ruff lints and formats for;
 - every `python:3.X-...` image the Makefile pins, which `make coverage` (and
   so sonarqube.yml and the `coverage` pre-push hook) runs the tests in;
 - `--python-version` in the header of tests/requirements.txt, the interpreter
@@ -28,6 +29,7 @@ WORKFLOW = REPO_ROOT / ".github/workflows/pull-request.yml"
 SONAR_PROPERTIES = REPO_ROOT / "sonar-project.properties"
 MAKEFILE = REPO_ROOT / "Makefile"
 LOCK = REPO_ROOT / "tests/requirements.txt"
+RUFF = REPO_ROOT / "ruff.toml"
 
 # `python-version: "3.14"`, quoted, as actions/setup-python is given it. The
 # quotes are not optional: YAML reads a bare 3.10 as the float 3.1, so an
@@ -40,6 +42,9 @@ SONAR_PYTHON = re.compile(
 )
 # Any python image reference, whatever variable holds it.
 MAKEFILE_PYTHON = re.compile(r"/python:(?P<major>\d+)\.(?P<minor>\d+)-[\w.-]*")
+RUFF_PYTHON = re.compile(
+    r'^target-version\s*=\s*"py(?P<major>\d)(?P<minor>\d+)"\s*$', re.MULTILINE
+)
 LOCK_PYTHON = re.compile(r"--python-version=(?P<major>\d+)\.(?P<minor>\d+)\b")
 
 AGREE = "They have to move together; nothing derives one from the other."
@@ -64,6 +69,15 @@ def test_sonar_python_version_matches_ci():
     sonar = SONAR_PYTHON.findall(SONAR_PROPERTIES.read_text())
     assert sonar == [ci], (
         f"{SONAR_PROPERTIES.name} sets sonar.python.version to {sonar} but "
+        f"{WORKFLOW.name} runs Python {'.'.join(ci)}. {AGREE}"
+    )
+
+
+def test_ruff_target_version_matches_ci():
+    ci = ci_python()
+    ruff = RUFF_PYTHON.findall(RUFF.read_text())
+    assert ruff == [ci], (
+        f"{RUFF.name} sets target-version to {ruff} but "
         f"{WORKFLOW.name} runs Python {'.'.join(ci)}. {AGREE}"
     )
 
