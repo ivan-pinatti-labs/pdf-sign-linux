@@ -45,7 +45,7 @@ the Legal section of [README.md](README.md).
    make coverage
    ```
 
-   It runs the Python tests under coverage.py (Python 3.12, lines and
+   It runs the Python tests under coverage.py (Python 3.14, lines and
    branches) and the shell tests under kcov (lines), each in a podman
    container, and fails unless both reach 100%. It needs podman on `PATH`.
    The shell tests stub podman, Wine, CUPS and Ghostscript, so they need
@@ -53,7 +53,10 @@ the Legal section of [README.md](README.md).
    so run `pre-commit install` again in an existing clone to pick up the
    pre-push stage. In a workbench, run it as
    `l2 --engine --net -- make coverage`. A new or changed script ships with
-   tests that reach every line of it.
+   tests that reach every line of it. The shell scripts are found, not
+   listed: any file outside `tests/` ending in `.sh` or `.bash`, or starting
+   with an `sh`, `bash` or `dash` shebang, is measured
+   (`make -s print-shell-scripts` shows the set).
 
    Changes to the image or launcher also need a manual run, since Reader is
    a GUI program: `make build`, then `make open FILE=...` on a Wayland
@@ -79,8 +82,8 @@ hand, edit the `.in` file and regenerate the lock in a container, from the
 `tests` directory:
 
 ```shell
-podman run --rm -v "$PWD:/w:rw,Z" -w /w ghcr.io/astral-sh/uv:python3.12-trixie-slim \
-  uv pip compile --generate-hashes --python-version=3.12 --exclude-newer=P7D \
+podman run --rm -v "$PWD:/w:rw,Z" -w /w ghcr.io/astral-sh/uv:python3.14-trixie-slim \
+  uv pip compile --generate-hashes --python-version=3.14 --exclude-newer=P7D \
   --output-file=requirements.txt requirements.in
 ```
 
@@ -99,8 +102,8 @@ release (`--upgrade-package`; without it, uv keeps the version already in the
 lock, so a vulnerable dependency of a dependency would not move):
 
 ```bash
-podman run --rm -v "$PWD:/w:rw,Z" -w /w ghcr.io/astral-sh/uv:python3.12-trixie-slim \
-  uv pip compile --generate-hashes --python-version=3.12 --exclude-newer=P7D \
+podman run --rm -v "$PWD:/w:rw,Z" -w /w ghcr.io/astral-sh/uv:python3.14-trixie-slim \
+  uv pip compile --generate-hashes --python-version=3.14 --exclude-newer=P7D \
   --exclude-newer-package "<package>=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
   --upgrade-package "<package>" \
   --output-file=requirements.txt requirements.in

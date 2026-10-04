@@ -1,0 +1,3 @@
+# The Python version ruff targets. tests/test_python_version_pin.py keeps it
+# equal to the python-version CI runs.
+target-version = "py314"
