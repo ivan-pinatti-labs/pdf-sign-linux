@@ -86,7 +86,7 @@ inbox: ## List the inbox
 COVERAGE_DIR ?= coverage
 PODMAN ?= $(if $(CONTAINER_HOST),podman-remote,podman)
 # renovate: datasource=docker depName=docker.io/library/python
-PYTHON_IMAGE ?= docker.io/library/python:3.12-slim@sha256:f77ac9e44ae96ef2c90b8053ea08c31f8be030f824196b0ae4db6d462c84e51f
+PYTHON_IMAGE ?= docker.io/library/python:3.14-slim@sha256:c3e521df8b2b498a7a682e7e18676771cb80c6b75b8699af886b2d554ce40151
 # renovate: datasource=docker depName=docker.io/kcov/kcov
 KCOV_IMAGE ?= docker.io/kcov/kcov:latest@sha256:481289ae32e55e5b733019515acd10948a4f76dfed381765577db909664fc603
 SHELL_SCRIPTS := pdf-sign containers/reader/start-reader containers/reader/inbox-backend selinux/generate.sh

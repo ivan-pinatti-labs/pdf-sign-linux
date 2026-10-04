@@ -66,7 +66,7 @@ Before scanning, the job runs `make coverage`, which holds the Python
 branches and the four shell scripts (`pdf-sign`, `selinux/generate.sh`,
 `containers/reader/start-reader`, `containers/reader/inbox-backend`) at 100%
 of lines, and hands both reports to SonarQube Cloud. The Python goes through
-coverage.py on Python 3.12, the version CI runs, and the shell through kcov,
+coverage.py on Python 3.14, the version CI runs, and the shell through kcov,
 each in a podman container that sees the source only as a tar stream on its
 standard input. The shell tests replace podman, Wine, CUPS and Ghostscript
 with stubs, so they need neither the Reader image nor a desktop. SonarQube

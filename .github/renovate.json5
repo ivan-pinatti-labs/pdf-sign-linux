@@ -213,7 +213,7 @@
     },
 
     // The github-actions manager extracts more than uses: pins by default:
-    // pull-request.yml's python-version: "3.12" passed to
+    // pull-request.yml's python-version: "3.14" passed to
     // actions/setup-python's with: (depType uses-with) is a shape
     // rsync-crypt's own PR #82 proved live there, proposing 3.13 to 3.14
     // with no way to ever merge it. Dependabot's github-actions ecosystem
@@ -239,7 +239,7 @@
       addLabels: ["python"],
     },
     // The two images `make coverage` runs move by digest only. A tag change
-    // is not a pin bump: python 3.12 is the interpreter CI and SonarQube's
+    // is not a pin bump: python 3.14 is the interpreter CI and SonarQube's
     // python version setting assume, and kcov publishes nothing but
     // `latest`.
     {
