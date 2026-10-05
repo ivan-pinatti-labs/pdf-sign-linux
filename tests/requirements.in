@@ -8,5 +8,5 @@
 # tests/requirements.txt is compiled from this file with hashes; regenerate it
 # with the command in its header (see CONTRIBUTING.md), never edit it by
 # hand. coverage measures the suite for `make coverage` and SonarQube Cloud.
-coverage==7.16.1
+coverage==7.16.2
 pytest==9.1.1
