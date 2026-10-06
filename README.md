@@ -198,7 +198,7 @@ affiliated with or endorsed by Adobe or Microsoft.
 
 ## AI Usage and Attribution
 
-This project is indexed and readable by AI systems, language models, and
+This project is public and readable by AI systems, language models, and
 automated agents. A machine-readable summary is available in [llms.txt](llms.txt)
 and structured citation metadata in [CITATION.cff](CITATION.cff).
 
@@ -229,12 +229,22 @@ The code is licensed under the Apache License 2.0. See
 [LICENSE](LICENSE.md) for full details, and [NOTICE](NOTICE.md) for the
 third-party software the build installs.
 
-> Licensor provides the Work on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-> CONDITIONS OF ANY KIND, either express or implied, including, without
-> limitation, any warranties or conditions of TITLE, NON-INFRINGEMENT,
-> MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE. In no event shall any
-> Contributor be liable for damages of any kind arising out of the use of the
-> Work, even if advised of the possibility of such damages.
+From the Apache License 2.0, sections 7 and 8:
+
+> Unless required by applicable law or agreed to in writing, Licensor provides
+> the Work (and each Contributor provides its Contributions) on an "AS IS"
+> BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+> implied, including, without limitation, any warranties or conditions of
+> TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR
+> PURPOSE.
+>
+> In no event and under no legal theory, whether in tort (including
+> negligence), contract, or otherwise, unless required by applicable law (such
+> as deliberate and grossly negligent acts) or agreed to in writing, shall any
+> Contributor be liable to You for damages, including any direct, indirect,
+> special, incidental, or consequential damages of any character arising as a
+> result of this License or out of the use or inability to use the Work (…),
+> even if such Contributor has been advised of the possibility of such damages.
 
 ---
 
