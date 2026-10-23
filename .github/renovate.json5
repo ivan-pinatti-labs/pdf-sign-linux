@@ -248,6 +248,41 @@
       matchUpdateTypes: ["major", "minor", "patch"],
       enabled: false,
     },
+    // What those images do move by, their digest, merges unattended. digest
+    // is an update type of its own: the patch and minor grant above does not
+    // match it, and any other digest grant here is scoped to another file.
+    // Without this rule every one of these bumps arrived with no `automerge`
+    // label, bot-auto-merge.yml gave it no approval, and it sat open with
+    // every required check green. `Pin Only` grades the Makefile with its
+    // `digest` grammar (.github/pin-only.yml), so the bot lane still has to
+    // pass first.
+    //
+    // The seven day window still holds. These tags are rebuilt upstream every
+    // week or two, and Renovate dates a digest by when its tag last moved, so
+    // `renovate/stability-days` reads pending whenever a newer build is under
+    // seven days old. With internalChecksFilter strict that newer build is
+    // held back and the branch keeps the last one that did age: the status
+    // describes the next candidate, not the branch, and no branch protection
+    // requires it.
+    {
+      matchManagers: ["custom.regex"],
+      matchFileNames: ["Makefile"],
+      matchUpdateTypes: ["digest"],
+      automerge: true,
+      addLabels: ["automerge"],
+    },
+    // Renovate's weekly refresh of the hash locked tests/requirements.txt
+    // ("Refresh pip-compile outputs") merges unattended as well. It is its
+    // own update type, lockFileMaintenance, which no grant above matches.
+    // The lock's own `--exclude-newer=P7D` keeps every release it resolves
+    // at least seven days old, and `Pin Only` grades it with
+    // hash_locked_requirements: the same packages, none added or removed,
+    // and every new hash one PyPI publishes for that release.
+    {
+      matchUpdateTypes: ["lockFileMaintenance"],
+      automerge: true,
+      addLabels: ["automerge"],
+    },
     // The organization's own releases (ivan-pinatti-labs/gh-actions,
     // pre-commit-checklists, agent-policy and the rest) skip the seven day
     // window. It exists to give a compromised or broken third party release
