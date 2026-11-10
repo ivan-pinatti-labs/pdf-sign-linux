@@ -9,4 +9,4 @@
 # with the command in its header (see CONTRIBUTING.md), never edit it by
 # hand. coverage measures the suite for `make coverage` and SonarQube Cloud.
 coverage==7.17.0
-pytest==9.1.1
+pytest==9.2.0
